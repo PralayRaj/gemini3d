@@ -461,12 +461,19 @@ contains
     !   An additional, more subtle issue occurs because of how we are allocating a contiguous array and then pointing
     !   intvars%energyneut, etc. to those arrays.  The allocated array has lbound=-1 but the pointer does not carry
     !   this information.  
-    i1start=lbound(intvars%sig0,1)+2
-    i1end=i1start+lx1-1
-    i2start=lbound(intvars%sig0,2)+2
-    i2end=i2start+lx2-1
-    i3start=lbound(intvars%sig0,3)+2
-    i3end=i3start+lx3-1
+!    i1start=lbound(intvars%sig0,1)+2
+!    i1end=i1start+lx1-1
+!    i2start=lbound(intvars%sig0,2)+2
+!    i2end=i2start+lx2-1
+!    i3start=lbound(intvars%sig0,3)+2
+!    i3end=i3start+lx3-1
+
+    i1start=1
+    i1end=lx1
+    i2start=1
+    i2end=lx2
+    i3start=1
+    i3end=lx3
 
     intvars%user_output(1:lx1,1:lx2,1:lx3,1)=intvars%sig0(i1start:i1end,i2start:i2end,i3start:i3end)
     intvars%user_output(1:lx1,1:lx2,1:lx3,2)=intvars%sigP(i1start:i1end,i2start:i2end,i3start:i3end)
