@@ -557,7 +557,7 @@ contains
     !This includes losses of the FBI part
     !CORRECT TEMP EXPRESSIONS TO CORRESPOND TO INTERNAL ENERGY SOURCES
     !This would be the place to include FBI heating probably just add to iePT
-    if (cfg%flagFBI>0) then 
+    if (cfg%flagFBI>0) then
       call FBIheating(nn,Tn,ns,Ts,E2,E3,x,FBIproduction,FBIlossfactor)
       Pr(:,:,:,lsp)=Pr(:,:,:,lsp)+FBIproduction+(iePT*FBIlossfactor)*ns(1:lx1,1:lx2,1:lx3,lsp)*kB/(gammas(lsp)-1)   !Arg, forgot about the damn ghost cells in original code...
       Lo(:,:,:,lsp)=Lo(:,:,:,lsp)+(ieLT*FBIlossfactor)

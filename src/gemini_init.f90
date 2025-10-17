@@ -153,6 +153,24 @@ if (mpi_cfg%myid==0) then
     print*, 'Lagrangian grid disabled'
   end if
 
+  if (cfg%flagFBI>=1) then
+    print*, 'Anomalous electrojet heating enabled.'
+  else
+    print*, 'Anomalous electrojet heating disabled.'
+  end if
+
+  if (cfg%flagFBI==2) then
+    print*, 'Nonlinear current enabled.'
+  else
+    print*, 'Nonlinear current disabled.'
+  end if
+
+  if (cfg%flagevibcool==1) then
+    print*, 'Using updated model for electron inelastic collisions.'
+  else
+    print*, 'Using legacy model for electron inelastic collisions.'
+  end if
+    
   print *,  '**************** end input config ***************'
 end if
 
