@@ -559,6 +559,11 @@ contains
     !This would be the place to include FBI heating probably just add to iePT
     if (cfg%flagFBI>0) then
       call FBIheating(nn,Tn,ns,Ts,E2,E3,x,FBIproduction,FBIlossfactor)
+
+      !print*, minval(FBIproduction),maxval(FBIproduction),minval(FBIlossfactor),maxval(FBIlossfactor)
+      !print*, FBIproduction
+      !error stop
+
       Pr(:,:,:,lsp)=Pr(:,:,:,lsp)+FBIproduction+(iePT*FBIlossfactor)*ns(1:lx1,1:lx2,1:lx3,lsp)*kB/(gammas(lsp)-1)   !Arg, forgot about the damn ghost cells in original code...
       Lo(:,:,:,lsp)=Lo(:,:,:,lsp)+(ieLT*FBIlossfactor)
     else  
@@ -613,7 +618,6 @@ contains
     !Because the loss factor is a fitting of the logarithmic base 10 value of it. Multiply by LOG10 to change to natural log
     QTe = EXP(LogQTe*LOG(10.0_wp)) !Make it linear 
     O2VibrationalLoss=nn(:,:,:,3)*1.0e-6_wp*QTe*(1-EXP(2239.0_wp*((Tn-Te)/(Te*Tn))))
-    !print*,nn(:,:,:,3)
   end subroutine O2vib
 
 
@@ -822,9 +826,9 @@ contains
     lx3=x%lx3
     
     !Bmagnitude=x%Bmag(1:lx1,1:lx2,1:lx3)
-    Bmagnitude=x%Bmag(1:lx1,1:lx2,1:lx3)
+    Bmagnitude=abs(x%Bmag(1:lx1,1:lx2,1:lx3))
     Emagnitude=sqrt(E2(1:lx1,1:lx2,1:lx3)**2+E3(1:lx1,1:lx2,1:lx3)**2) !!Already evaluated with no ghost cells
-    
+   
     !!Initialize arrays a 0s and loss as 1s
     nuAvg=0.0_wp
     nsuAvg=0.0_wp
@@ -884,7 +888,7 @@ contains
     
     !!Phi value 1/(ki*ke)
     phi=1.0_wp/(ke*ki)
-    
+
     !!Average ion temperature
     TsAvg(:,:,:,1)=(Ts(1:lx1,1:lx2,1:lx3,2)*niW(:,:,:,2)+Ts(1:lx1,1:lx2,1:lx3,4)*niW(:,:,:,4))/(niW(:,:,:,2)+niW(:,:,:,4))
     TsAvg(:,:,:,2)=Ts(1:lx1,1:lx2,1:lx3,lsp)
@@ -892,7 +896,7 @@ contains
     !doi:10.1029/2011JA016649
     Eth0=20.0_wp*SQRT((TsAvg(:,:,:,1)+TsAvg(:,:,:,2))/600.0_wp)*(Bmagnitude/5.0e-5_wp) !B is written as 5e4nT, to T
     Ethreshold=(1.0_wp+phi)*SQRT((1.0_wp+ki**2)/(1.0_wp-ki**2))*Eth0*1.0e-3_wp !the 1e-3 is needed since this eq gives mV/m, not V/m
-    
+   
     !Create matrix of 1 and 0s where FBI is possible, FBIbinary starts with all 1's meaning FBI everywhere
     where (Emagnitude<=Ethreshold) !Anything without a sufficiente E field gets back to normal.
       FBIbinary=0
