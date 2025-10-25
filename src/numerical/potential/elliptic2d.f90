@@ -1806,6 +1806,8 @@ contains
       sigPh3(:,2:l2nddim)=0.5_wp*(sigP(:,1,1:l2nddim-1)+sigP(:,1,2:l2nddim))
       sig0h1(2:lx1,:)=0.5_wp*(sig0(1:lx1-1,1,:)+sig0(2:lx1,1,:))
     end if
+
+    !print*, flagsdirich, minval(Vminx3),maxval(Vminx3),minval(Vmaxx3),maxval(Vmaxx3)
   
     ! fill elements of matrix to be solved.  we use centralized assembled matrix input as described in mumps user manual section 4.5
     ! all of the logic of inverted vs. noninverted grids has been exported to the parent routine; leaving this as a pure applied
