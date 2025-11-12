@@ -109,7 +109,6 @@ contains
     allocate(user_outputall(1:lx1,1:lx2all,1:lx3all,1:lparms))
 
     print *, 'System sizes according to Phiall:  ',lx1,lx2all,lx3all
-    print *, '  -->Number of user-defined output variables:  ',lparms
     !ONLY AVERAGE DRIFTS PERP TO B NEEDED FOR OUTPUT
     v2avg=sum(ns(1:lx1,1:lx2,1:lx3,1:lsp-1)*vs2(1:lx1,1:lx2,1:lx3,1:lsp-1),4)
     v2avg=v2avg/ns(1:lx1,1:lx2,1:lx3,lsp)    !compute averages for output.
@@ -137,6 +136,8 @@ contains
       call gather_recv(tmp,tag%uservar,tmpall)
       user_outputall(:,:,:,iparm)=tmpall
     end do
+    print *, '  -->Number of user-defined output variables:  ',lparms, minval(user_outputall(:,:,:,4)), maxval(user_outputall(:,:,:,4))
+
 
     !COMPUTE AVERAGE VALUES FOR ION PLASMA PARAMETERS
     !> possible bottleneck; should have workers help?
