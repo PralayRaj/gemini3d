@@ -480,6 +480,9 @@ contains
     intvars%user_output(1:lx1,1:lx2,1:lx3,3)=intvars%sigH(i1start:i1end,i2start:i2end,i3start:i3end)
     intvars%user_output(1:lx1,1:lx2,1:lx3,4)=intvars%sigNCP(i1start:i1end,i2start:i2end,i3start:i3end)
     intvars%user_output(1:lx1,1:lx2,1:lx3,5)=intvars%sigNCH(i1start:i1end,i2start:i2end,i3start:i3end)
+
+    !print*, minval(intvars%user_output(1:lx1,1:lx2,1:lx3,2)), maxval(intvars%user_output(1:lx1,1:lx2,1:lx3,2))
+    !print*, minval(intvars%user_output(1:lx1,1:lx2,1:lx3,4)), maxval(intvars%user_output(1:lx1,1:lx2,1:lx3,4))
   end subroutine user_populate
 
 
