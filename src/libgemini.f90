@@ -1333,7 +1333,7 @@ contains
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
     call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
 
-    call source_loss_momentum(intvars%atmos%nn,intvars%atmos%vn1,intvars%atmos%Tn,ns,vs1,vs2,vs3,Ts,E1, &
+    call source_loss_momentum(intvars%atmos%nn,intvars%atmos%vn1,intvars%atmos%Tn,ns,vs1,vs2,vs3,Ts,E1,J1, &
             intvars%Q,x,intvars%Pr,intvars%Lo,dt,rhovs1)
   end subroutine source_loss_momentum_in
 
