@@ -144,10 +144,10 @@ subroutine source_loss_mass(nn,vn1,vn2,vn3,Tn,ns,vs1,vs2,vs3,Ts,Pr,Lo,dt,Prioniz
 end subroutine source_loss_mass
 
 
-subroutine source_loss_momentum(nn,vn1,Tn,ns,vs1,vs2,vs3,Ts,E1,Q,x,Pr,Lo,dt,rhovs1)
+subroutine source_loss_momentum(nn,vn1,Tn,ns,vs1,vs2,vs3,Ts,E1,J1,Q,x,Pr,Lo,dt,rhovs1)
   real(wp), intent(in) :: dt
   class(curvmesh), intent(in) :: x
-  real(wp), dimension(-1:,-1:,-1:), intent(in) :: E1
+  real(wp), dimension(-1:,-1:,-1:), intent(in) :: E1,J1
   real(wp), dimension(:,:,:,:), intent(in) :: Q
   real(wp), dimension(:,:,:,:), intent(in) :: nn
   real(wp), dimension(:,:,:), intent(in) :: vn1,Tn
@@ -156,7 +156,7 @@ subroutine source_loss_momentum(nn,vn1,Tn,ns,vs1,vs2,vs3,Ts,E1,Q,x,Pr,Lo,dt,rhov
 
   !ALL VELOCITY SOURCES
   call srcsMomentum(nn,vn1,Tn,ns,vs1,vs2,vs3,Ts,E1,Q,x,Pr,Lo)    !added artificial viscosity...
-  call momentum_source_loss_solve(dt,x,Pr,Lo,ns,rhovs1,vs1)
+  call momentum_source_loss_solve(dt,x,Pr,Lo,ns,rhovs1,vs1,J1)
 end subroutine source_loss_momentum
 
 
@@ -648,13 +648,14 @@ end subroutine energy_source_loss_solve
 
 !>  Momentum source/loss processes.  Upon entry the momentum density should be updated to most recent; upon exit
 !     both momentum density and velocity will be updated.
-subroutine momentum_source_loss_solve(dt,x,Pr,Lo,ns,rhovs1,vs1)
+subroutine momentum_source_loss_solve(dt,x,Pr,Lo,ns,rhovs1,vs1,J1)
   real(wp), intent(in) :: dt
   class(curvmesh), intent(in) :: x
   real(wp), dimension(:,:,:,:), intent(in) :: Pr
   real(wp), dimension(:,:,:,:), intent(in) :: Lo
   real(wp), dimension(-1:,-1:,-1:,:), intent(in) :: ns
   real(wp), dimension(-1:,-1:,-1:,:), intent(inout) :: rhovs1,vs1
+  real(wp), dimension(-1:,-1:,-1:), intent(in) :: J1
   real(wp), dimension(1:size(rhovs1,1)-4,1:size(rhovs1,2)-4,1:size(rhovs1,3)-4) :: paramtrim
   real(wp), dimension(-1:size(ns,1)-2,-1:size(ns,2)-2,-1:size(ns,3)-2) :: chrgflux
   integer :: isp,lsp
@@ -673,8 +674,8 @@ subroutine momentum_source_loss_solve(dt,x,Pr,Lo,ns,rhovs1,vs1)
   do isp=1,lsp-1
     chrgflux=chrgflux+ns(:,:,:,isp)*qs(isp)*vs1(:,:,:,isp)
   end do
-  !  vs1(1:lx1,1:lx2,1:lx3,lsp)=1/max(ns(1:lx1,1:lx2,1:lx3,lsp),mindensdiv)/qs(lsp)*(J1-chrgflux)   !density floor needed???
-  vs1(:,:,:,lsp)=-1/max(ns(:,:,:,lsp),mindensdiv)/qs(lsp)*chrgflux    !don't bother with FAC contribution...
+  vs1(1:lx1,1:lx2,1:lx3,lsp)=1/max(ns(1:lx1,1:lx2,1:lx3,lsp),mindensdiv)/qs(lsp)*(J1-chrgflux)   !density floor needed???
+  !vs1(:,:,:,lsp)=-1/max(ns(:,:,:,lsp),mindensdiv)/qs(lsp)*chrgflux    !don't bother with FAC contribution...
   rhovs1(:,:,:,lsp)=ns(:,:,:,lsp)*ms(lsp)*vs1(:,:,:,lsp)              ! update electron momentum in case it is ever used
 end subroutine momentum_source_loss_solve
 
