@@ -868,16 +868,20 @@ contains
 
 
   !> convert velocity to momentum density
-  subroutine v12rhov1_in(fluidvars,fluidauxvars)
+  subroutine v12rhov1_in(fluidvars,fluidauxvars,electrovars)
     real(wp), dimension(:,:,:,:), pointer, intent(in) :: fluidvars
     real(wp), dimension(:,:,:,:), pointer, intent(inout) :: fluidauxvars
+    real(wp), dimension(:,:,:,:), pointer, intent(in) :: electrovars
     real(wp), dimension(:,:,:,:), pointer :: ns,vs1,vs2,vs3,Ts
     real(wp), dimension(:,:,:,:), pointer :: rhovs1,rhoes
     real(wp), dimension(:,:,:), pointer :: rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom
+    real(wp), dimension(:,:,:), pointer :: E1,E2,E3,J1,J2,J3,Phi   
 
     call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
-    call v12rhov1(ns,vs1,rhovs1)
+    call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
+   
+    call v12rhov1(ns,vs1,rhovs1,J1)
   end subroutine v12rhov1_in
 
 
@@ -1117,16 +1121,20 @@ contains
 
 
   !> conversion of momentum density to velocity
-  subroutine rhov12v1_in(fluidvars,fluidauxvars)
+  subroutine rhov12v1_in(fluidvars,fluidauxvars,electrovars)
     real(wp), dimension(:,:,:,:), pointer, intent(inout) :: fluidvars
     real(wp), dimension(:,:,:,:), pointer, intent(in) :: fluidauxvars
+    real(wp), dimension(:,:,:,:), pointer, intent(in) :: electrovars
     real(wp), dimension(:,:,:,:), pointer :: ns,vs1,vs2,vs3,Ts
     real(wp), dimension(:,:,:,:), pointer :: rhovs1,rhoes
     real(wp), dimension(:,:,:), pointer :: rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom
+    real(wp), dimension(:,:,:), pointer :: E1,E2,E3,J1,J2,J3,Phi
 
     call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
-    call rhov12v1(ns,rhovs1,vs1)
+    call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
+
+    call rhov12v1(ns,rhovs1,vs1,J1)
   end subroutine rhov12v1_in
 
 

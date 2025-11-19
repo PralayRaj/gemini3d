@@ -290,20 +290,26 @@ end subroutine T2rhoe
 
 
 !> Convert velocity to momentum
-subroutine v12rhov1(ns,vs1,rhovs1)
+subroutine v12rhov1(ns,vs1,rhovs1,J1)
   real(wp), dimension(-1:,-1:,-1:,:), intent(inout) ::  ns,vs1,rhovs1
+  real(wp), dimension(-1:,-1:,-1:), intent(in) :: J1
   integer :: isp,lsp
+  real(wp), dimension(-1:size(ns,1)-2,-1:size(ns,2)-2,-1:size(ns,3)-2) :: chrgflux 
 
+  chrgflux=0._wp
   lsp=size(vs1,4)
-  do isp=1,lsp
+  do isp=1,lsp-1
     rhovs1(:,:,:,isp)=ns(:,:,:,isp)*ms(isp)*vs1(:,:,:,isp)
+    chrgflux=chrgflux+ns(:,:,:,isp)*qs(isp)*vs1(:,:,:,isp)
   end do
+  rhovs1(1:lx1,1:lx2,1:lx3,lsp)=ms(lsp)/qs(lsp) * (J1(1:lx1,1:lx2,1:lx3) - chrgflux(1:lx1,1:lx2,1:lx3))
 end subroutine v12rhov1
 
 
 !> Compute electron density and velocity given ion momenta, compute ion velocities as well
-subroutine rhov12v1(ns,rhovs1,vs1)
+subroutine rhov12v1(ns,rhovs1,vs1,J1)
   real(wp), dimension(-1:,-1:,-1:,:), intent(inout) ::  ns,rhovs1,vs1
+  real(wp), dimension(-1:,-1:,-1:), intent(in) :: J1
   integer :: isp,lsp
   real(wp), dimension(-1:size(ns,1)-2,-1:size(ns,2)-2,-1:size(ns,3)-2) :: chrgflux
 
@@ -315,8 +321,9 @@ subroutine rhov12v1(ns,rhovs1,vs1)
     chrgflux=chrgflux+ns(:,:,:,isp)*qs(isp)*vs1(:,:,:,isp)
   end do
   ns(:,:,:,lsp)=sum(ns(:,:,:,1:lsp-1),4)
-!!      vs1(1:lx1,1:lx2,1:lx3,lsp)=1/ns(1:lx1,1:lx2,1:lx3,lsp)/qs(lsp)*(J1-chrgflux)   !density floor needed???
-  vs1(:,:,:,lsp)=-1/max(ns(:,:,:,lsp),mindensdiv)/qs(lsp)*chrgflux   !really not strictly correct, should include current density
+  vs1(1:lx1,1:lx2,1:lx3,lsp)=1/max(ns(1:lx1,1:lx2,1:lx3,lsp),mindensdiv)/qs(lsp)* &
+                 (J1(1:lx1,1:lx2,1:lx3)-chrgflux(1:lx1,1:lx2,1:lx3))
+!!  vs1(:,:,:,lsp)=-1/max(ns(:,:,:,lsp),mindensdiv)/qs(lsp)*chrgflux   !really not strictly correct, should include current density
 end subroutine rhov12v1
 
 
@@ -674,7 +681,8 @@ subroutine momentum_source_loss_solve(dt,x,Pr,Lo,ns,rhovs1,vs1,J1)
   do isp=1,lsp-1
     chrgflux=chrgflux+ns(:,:,:,isp)*qs(isp)*vs1(:,:,:,isp)
   end do
-  vs1(1:lx1,1:lx2,1:lx3,lsp)=1/max(ns(1:lx1,1:lx2,1:lx3,lsp),mindensdiv)/qs(lsp)*(J1-chrgflux)   !density floor needed???
+  vs1(1:lx1,1:lx2,1:lx3,lsp)=1/max(ns(1:lx1,1:lx2,1:lx3,lsp),mindensdiv)/qs(lsp)* &
+                 (J1(1:lx1,1:lx2,1:lx3)-chrgflux(1:lx1,1:lx2,1:lx3))
   !vs1(:,:,:,lsp)=-1/max(ns(:,:,:,lsp),mindensdiv)/qs(lsp)*chrgflux    !don't bother with FAC contribution...
   rhovs1(:,:,:,lsp)=ns(:,:,:,lsp)*ms(lsp)*vs1(:,:,:,lsp)              ! update electron momentum in case it is ever used
 end subroutine momentum_source_loss_solve

@@ -500,16 +500,20 @@ contains
 
 
   !> convert velocity to momentum density
-  subroutine v12rhov1_C(fluidvarsC,fluidauxvarsC) bind(C,name='v12rhov1_C')
+  subroutine v12rhov1_C(fluidvarsC,fluidauxvarsC,electrovarsC) bind(C,name='v12rhov1_C')
     type(c_ptr), intent(in) :: fluidvarsC
     type(c_ptr), intent(inout) :: fluidauxvarsC
+    type(c_ptr), intent(in) :: electrovarsC
 
     real(wp), dimension(:,:,:,:), pointer :: fluidvars
     real(wp), dimension(:,:,:,:), pointer :: fluidauxvars
+    real(wp), dimension(:,:,:,:), pointer :: electrovars
 
     call c_f_pointer(fluidvarsC,fluidvars,[(lx1+4),(lx2+4),(lx3+4),(5*lsp)])
     call c_f_pointer(fluidauxvarsC,fluidauxvars,[(lx1+4),(lx2+4),(lx3+4),(2*lsp+9)])
-    call v12rhov1_in(fluidvars,fluidauxvars)
+    call c_f_pointer(electrovarsC,electrovars,[(lx1+4),(lx2+4),(lx3+4),7])
+
+    call v12rhov1_in(fluidvars,fluidauxvars,electrovars)
   end subroutine v12rhov1_C
 
 
@@ -803,16 +807,20 @@ contains
 
 
   !> conversion of momentum density to velocity
-  subroutine rhov12v1_C(fluidvarsC, fluidauxvarsC) bind(C, name="rhov12v1_C")
+  subroutine rhov12v1_C(fluidvarsC, fluidauxvarsC, electrovarsC) bind(C, name="rhov12v1_C")
     type(c_ptr), intent(inout) :: fluidvarsC
     type(c_ptr), intent(in) :: fluidauxvarsC
+    type(c_ptr), intent(in) :: electrovarsC
 
     real(wp), dimension(:,:,:,:), pointer :: fluidvars
     real(wp), dimension(:,:,:,:), pointer :: fluidauxvars
+    real(wp), dimension(:,:,:,:), pointer :: electrovars
 
     call c_f_pointer(fluidvarsC,fluidvars,[(lx1+4),(lx2+4),(lx3+4),(5*lsp)])
     call c_f_pointer(fluidauxvarsC,fluidauxvars,[(lx1+4),(lx2+4),(lx3+4),(2*lsp+9)])
-    call rhov12v1_in(fluidvars,fluidauxvars)
+    call c_f_pointer(electrovarsC,electrovars,[(lx1+4),(lx2+4),(lx3+4),7])
+
+    call rhov12v1_in(fluidvars,fluidauxvars,electrovars)
   end subroutine rhov12v1_C
 
 

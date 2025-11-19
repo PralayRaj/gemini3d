@@ -318,7 +318,7 @@ contains
     call get_solar_indices(cfg,f107,f107a)
 
     ! Prior to advection substep convert velocity and temperature to momentum and enegy density (which are local to this procedure)
-    call v12rhov1_in(fluidvars,fluidauxvars)
+    call v12rhov1_in(fluidvars,fluidauxvars,electrovars)
     call T2rhoe_in(fluidvars,fluidauxvars)
 
     ! advection substep for all species
