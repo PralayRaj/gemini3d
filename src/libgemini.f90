@@ -871,7 +871,8 @@ contains
 
 
   !> convert velocity to momentum density
-  subroutine v12rhov1_in(fluidvars,fluidauxvars,electrovars)
+  subroutine v12rhov1_in(cfg,fluidvars,fluidauxvars,electrovars)
+    type(gemini_cfg), intent(in) :: cfg
     real(wp), dimension(:,:,:,:), pointer, intent(in) :: fluidvars
     real(wp), dimension(:,:,:,:), pointer, intent(inout) :: fluidauxvars
     real(wp), dimension(:,:,:,:), pointer, intent(in) :: electrovars
@@ -884,7 +885,7 @@ contains
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
     call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
    
-    call v12rhov1(ns,vs1,rhovs1,J1)
+    call v12rhov1(ns,vs1,rhovs1,J1,cfg%flagJ1ve)
   end subroutine v12rhov1_in
 
 
@@ -1124,7 +1125,8 @@ contains
 
 
   !> conversion of momentum density to velocity
-  subroutine rhov12v1_in(fluidvars,fluidauxvars,electrovars)
+  subroutine rhov12v1_in(cfg,fluidvars,fluidauxvars,electrovars)
+    type(gemini_cfg), intent(in) :: cfg
     real(wp), dimension(:,:,:,:), pointer, intent(inout) :: fluidvars
     real(wp), dimension(:,:,:,:), pointer, intent(in) :: fluidauxvars
     real(wp), dimension(:,:,:,:), pointer, intent(in) :: electrovars
@@ -1137,7 +1139,7 @@ contains
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
     call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
 
-    call rhov12v1(ns,rhovs1,vs1,J1)
+    call rhov12v1(ns,rhovs1,vs1,J1,cfg%flagJ1ve)
   end subroutine rhov12v1_in
 
 
@@ -1345,7 +1347,7 @@ contains
     call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
 
     call source_loss_momentum(intvars%atmos%nn,intvars%atmos%vn1,intvars%atmos%Tn,ns,vs1,vs2,vs3,Ts,E1,J1, &
-            intvars%Q,x,intvars%Pr,intvars%Lo,dt,rhovs1)
+            intvars%Q,x,intvars%Pr,intvars%Lo,dt,rhovs1,cfg%flagJ1ve)
   end subroutine source_loss_momentum_in
 
 
