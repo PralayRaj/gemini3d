@@ -63,15 +63,11 @@ contains
     ! for controlling which electron cooling rates are used in energy equations
     integer :: flagevibcool
 
-<<<<<<< HEAD
     ! user flag to enable calculation of magnetic pole based on year
     logical :: flagmagpole=.false.
 
-
-=======
     ! controls type of electron velocity solve
     logical :: flagJ1ve
->>>>>>> 12d271d0 (options to switch use of J1 in calculation of parallel electron drift)
 
     namelist /base/ ymd, UTsec0, tdur, dtout, activ, tcfl, Teinf
     namelist /files/ file_format, indat_size, indat_grid, indat_file
@@ -98,11 +94,8 @@ contains
     namelist /fang_pars/ diff_num_flux, kappa, bimax_frac, W0_char
     namelist /FBI/ flagFBI
     namelist /evibcool/ flagevibcool
-<<<<<<< HEAD
     namelist /magpole/ flagmagpole
-=======
     namelist /J1ve/ flagJ1ve
->>>>>>> 12d271d0 (options to switch use of J1 in calculation of parallel electron drift)
 
     if(.not. allocated(cfg%outdir)) error stop 'gemini3d:config:config_nml please specify simulation output directory'
     if(.not. allocated(cfg%infile)) error stop 'gemini3d:config:config_nml please specify simulation configuration file config.nml'

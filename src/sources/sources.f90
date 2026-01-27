@@ -904,11 +904,7 @@ contains
     !doi:10.1029/2011JA016649
     Eth0=20.0_wp*SQRT((TsAvg(:,:,:,1)+TsAvg(:,:,:,2))/600.0_wp)*(Bmagnitude/5.0e-5_wp) !B is written as 5e4nT, to T
     Ethreshold=(1.0_wp+phi)*SQRT((1.0_wp+ki**2)/(1.0_wp-ki**2))*Eth0*1.0e-3_wp !the 1e-3 is needed since this eq gives mV/m, not V/m
-<<<<<<< HEAD
 
-=======
-   
->>>>>>> efbc54a2 (fix sign issue associated with x%Bmag not being a proper magnitude)
     !Create matrix of 1 and 0s where FBI is possible, FBIbinary starts with all 1's meaning FBI everywhere
     where (Emagnitude<=Ethreshold) !Anything without a sufficiente E field gets back to normal.
       FBIbinary=0
