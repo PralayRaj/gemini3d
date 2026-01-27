@@ -7,7 +7,7 @@ implicit none (type, external)
 interface ! plasma_output_*.f90
   module subroutine output_root_stream_mpi_hdf5(outdir,flagoutput,ymd,UTsec,v2avgall,v3avgall,nsall,vs1all,Tsall, &
                                                 Phiall,J1all,J2all,J3all,neall,v1avgall,Tavgall,Teall, &
-                                                user_outputall)
+                                                user_outputall,production_rateall)
     character(*), intent(in) :: outdir
     integer, intent(in) :: flagoutput
     integer, dimension(3), intent(in) :: ymd
@@ -17,7 +17,7 @@ interface ! plasma_output_*.f90
     real(wp), dimension(-1:,-1:,-1:), intent(in) :: Phiall   ! okay to have ghost cells b/c already resides on root.
     real(wp), dimension(1:,1:,1:), intent(in) :: J1all,J2all,J3all   ! tricky/confusing - J1,2,3 have ghost cells but these do not!
     real(wp), dimension(:,:,:), intent(in) :: neall,v1avgall,Tavgall,Teall
-    real(wp), dimension(:,:,:,:), intent(in) :: user_outputall
+    real(wp), dimension(:,:,:,:), intent(in) :: user_outputall,production_rateall
   end subroutine
 end interface
 
@@ -29,14 +29,14 @@ contains
     !! VARIABLES MUST BE DECLARED AS ALLOCATABLE, INTENT(INOUT)
     
     if (mpi_cfg%myid == 0) then
-      call output_root_stream_mpi(outdir,flagoutput,ymd,UTsec,vs2,vs3,ns,vs1,Ts,Phiall,J1,J2,J3,out_format,user_output)
+      call output_root_stream_mpi(outdir,flagoutput,ymd,UTsec,vs2,vs3,ns,vs1,Ts,Phiall,J1,J2,J3,out_format,user_output,production_rate)
     else
-      call output_workers_mpi(vs2,vs3,ns,vs1,Ts,J1,J2,J3,user_output)
+      call output_workers_mpi(vs2,vs3,ns,vs1,Ts,J1,J2,J3,user_output,production_rate)
     end if
   end procedure output_plasma
 
 
-  subroutine output_workers_mpi(vs2,vs3,ns,vs1,Ts,J1,J2,J3,user_output)
+  subroutine output_workers_mpi(vs2,vs3,ns,vs1,Ts,J1,J2,J3,user_output,production_rate)
     !------------------------------------------------------------
     !-------SEND COMPLETE DATA FROM WORKERS TO ROOT PROCESS FOR OUTPUT.
     !-------STATE VARS ARE EXPECTED TO INCLUDE GHOST CELLS
@@ -46,9 +46,10 @@ contains
         real(wp), dimension(-1:,-1:,-1:,:), intent(in) :: vs2,vs3,ns,vs1,Ts
     real(wp), dimension(-1:,-1:,-1:), intent(in) :: J1,J2,J3
     real(wp), dimension(:,:,:,:), intent(in) :: user_output
+    real(wp), dimension(:,:,:,:), intent(in) :: production_rate
     real(wp), dimension(1:size(ns,1)-4,1:size(ns,2)-4,1:size(ns,3)-4) :: v2avg,v3avg
     real(wp), dimension(1:lx1,1:lx2,1:lx3) :: tmp
-    integer :: iparm,lparms
+    integer :: iparm,lparms,nparms
     
     !ONLY AVERAGE DRIFTS PERP TO B NEEDED FOR OUTPUT
     v2avg=sum(ns(1:lx1,1:lx2,1:lx3,1:lsp-1)*vs2(1:lx1,1:lx2,1:lx3,1:lsp-1),4)
@@ -78,10 +79,16 @@ contains
       tmp=user_output(:,:,:,iparm)
       call gather_send(tmp,tag%uservar)
     end do
+    
+    nparms=size(production_rate,4)    
+    do iparm = 1,nparms
+      tmp = production_rate(:,:,:,iparm)
+      call gather_send(tmp, tag%uservar)   ! or define a new tag e.g., tag%prod_rate
+    end do
   end subroutine output_workers_mpi
   
   
-  subroutine output_root_stream_mpi(outdir,flagoutput,ymd,UTsec,vs2,vs3,ns,vs1,Ts,Phiall,J1,J2,J3,out_format,user_output)
+  subroutine output_root_stream_mpi(outdir,flagoutput,ymd,UTsec,vs2,vs3,ns,vs1,Ts,Phiall,J1,J2,J3,out_format,user_output,production_rate)
     !------------------------------------------------------------
     !------- Root needs to gather data and pass to subroutine to
     !------- write to disk in the appropriate format.
@@ -95,18 +102,22 @@ contains
     real(wp), dimension(-1:,-1:,-1:), intent(in) :: Phiall
     real(wp), dimension(-1:,-1:,-1:), intent(in) :: J1,J2,J3
     real(wp), dimension(1:,1:,1:,1:), intent(in) :: user_output   
+    real(wp), dimension(:,:,:,:), intent(in) :: production_rate
     real(wp), dimension(1:lx1,1:lx2,1:lx3) :: v2avg,v3avg
     real(wp), dimension(-1:lx1+2,-1:lx2all+2,-1:lx3all+2,1:lsp) :: nsall,vs1all,Tsall
     real(wp), dimension(1:lx1,1:lx2all,1:lx3all) :: v2avgall,v3avgall,v1avgall,Tavgall,neall,Teall
     real(wp), dimension(1:lx1,1:lx2,1:lx3) :: tmp
     real(wp), dimension(1:lx1,1:lx2all,1:lx3all) :: J1all,J2all,J3all
     real(wp), dimension(1:lx1,1:lx2all,1:lx3all) :: tmpall
-    integer :: iparm,lparms
+    integer :: iparm,lparms,nparms
     real(wp), dimension(:,:,:,:), allocatable :: user_outputall
+    real(wp), dimension(:,:,:,:), allocatable :: production_rateall
     
     ! to deal with user output
     lparms=size(user_output,4)
+    nparms=size(production_rate,4)
     allocate(user_outputall(1:lx1,1:lx2all,1:lx3all,1:lparms))
+    allocate(production_rateall(1:lx1,1:lx2all,1:lx3all,1:nparms))
 
     print *, 'System sizes according to Phiall:  ',lx1,lx2all,lx3all
     !ONLY AVERAGE DRIFTS PERP TO B NEEDED FOR OUTPUT
@@ -136,7 +147,14 @@ contains
       call gather_recv(tmp,tag%uservar,tmpall)
       user_outputall(:,:,:,iparm)=tmpall
     end do
-    print *, '  -->Number of user-defined output variables:  ',lparms, minval(user_outputall(:,:,:,4)), maxval(user_outputall(:,:,:,4))
+
+    do iparm = 1, nparms
+      tmp = production_rate(:,:,:,iparm)
+      call gather_recv(tmp, tag%uservar, tmpall)
+      production_rateall(:,:,:,iparm) = tmpall
+    end do
+
+   ! print *, '  -->Number of user-defined output variables:  ',lparms, minval(user_outputall(:,:,:,4)), maxval(user_outputall(:,:,:,4))
 
 
     !COMPUTE AVERAGE VALUES FOR ION PLASMA PARAMETERS
@@ -157,11 +175,12 @@ contains
     select case (out_format)
       case ('h5')
         call output_root_stream_mpi_hdf5(outdir,flagoutput,ymd,UTsec,v2avgall,v3avgall,nsall,vs1all,Tsall, &
-                                           Phiall,J1all,J2all,J3all,neall,v1avgall,Tavgall,Teall,user_outputall)
+                                           Phiall,J1all,J2all,J3all,neall,v1avgall,Tavgall,Teall,user_outputall,production_rateall)
       case default
         error stop 'plasma_output:output_root_stream_api: unknown format' // out_format
     end select
 
     deallocate(user_outputall)
+    deallocate(production_rateall)
   end subroutine output_root_stream_mpi
 end submodule plasma_output

@@ -153,8 +153,10 @@ type gemini_work
 
   !> user output data
   integer :: lparms=5   ! number of 3D arrays to be output to hdf5 files
-  !integer :: lparms=0
+  integer :: nparms=5
   real(wp), dimension(:,:,:,:), pointer :: user_output=>null()     ! pointer to user output data
+  !> photoionization production rates
+  real(wp), dimension(:,:,:,:), pointer :: production_rate =>null()
 end type gemini_work
 
 
@@ -459,6 +461,13 @@ contains
     else
       error stop 'attempting to allocate user_output when already in use.'
     end if
+
+    if (.not. associated(intvars%production_rate)) then
+      allocate(intvars%production_rate(1:lx1,1:lx2,1:lx3,1:intvars%nparms))
+    else
+      error stop 'attempting to allocate production_rate when already in use.'
+    end if 
+
   end subroutine user_allocate
 
 
@@ -500,6 +509,7 @@ contains
 
     !print*, minval(intvars%user_output(1:lx1,1:lx2,1:lx3,2)), maxval(intvars%user_output(1:lx1,1:lx2,1:lx3,2))
     !print*, minval(intvars%user_output(1:lx1,1:lx2,1:lx3,4)), maxval(intvars%user_output(1:lx1,1:lx2,1:lx3,4))
+    intvars%production_rate(1:lx1,1:lx2,1:lx3,1:intvars%nparms) = intvars%Prionize(i1start:i1end,i2start:i2end,i3start:i3end,1:intvars%nparms)
   end subroutine user_populate
 
 
@@ -508,6 +518,7 @@ contains
     type(gemini_work), intent(inout) :: intvars
 
     if (associated(intvars%user_output)) deallocate(intvars%user_output)
+    if (associated(intvars%production_rate)) deallocate(intvars%production_rate)
   end subroutine user_deallocate
 
 
