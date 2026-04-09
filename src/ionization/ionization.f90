@@ -108,7 +108,7 @@ contains
     real(wp), dimension(size(nn,1),size(nn,2),size(nn,3),ll) :: Iflux, Iflux_day, Iflux_night
     real(wp), dimension(size(nn,1),size(nn,2),size(nn,3),lsp-1) :: photoionization    !don't need a separate rate for electrons
     real(wp) :: alt_km, sza_deg, logF, sza
-    real(wp) :: a, b, c
+    real(wp) :: a, b, c, fscale
     real(wp) :: tau_hei, tau_heii, tau_lyb, tau_lya
     real(wp), dimension(size(nn,1),size(nn,2),size(nn,3)) :: nOcol_vert ,nN2col_vert ,nO2col_vert
     
@@ -437,14 +437,18 @@ contains
     select case (trim(adjustl(line_type)))
     case ('lyalpha')
     a = 9.7e-05_wp; b = -0.0377_wp; c = 12.7900_wp
+    fscale = 1.0_wp
     case ('lybeta')
     a = 1.36e-4_wp; b = -0.0499_wp; c = 10.9299_wp
+    fscale = 0.85_wp
 !     print *, 'Case Ly-Beta'
     case ('hei')
     a = -2.4e-05_wp; b = -0.0596_wp; c = 13.5588_wp
+    fscale = 0.05_wp
 !     print *, 'Case He I'
     case ('heii')
     a = -1.3e-04_wp; b = 0.0287_wp; c = 6.0416_wp
+    fscale = 0.05_wp
 !     print *, 'Case He II'
     case default
     F = 0._wp; return
@@ -452,7 +456,7 @@ contains
 
 
     logF = a * sza_deg**2 + b * sza_deg + c
-    F = 10.0_wp**logF*1e4 !m-2s-1
+    F = fscale*10.0_wp**logF*1e4 !m-2s-1
 !      print *, 'Flux for', trim(line_type), 'is', F
 !      print *, 'SZA is:', sza_deg
 !     print *, 'a =', a, ', b =', b, ', c =', c  
