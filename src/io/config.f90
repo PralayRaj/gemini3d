@@ -121,6 +121,9 @@ type :: gemini_cfg
   
   !> whether to incorporate parallel currents into calculations of parallel electron drift
   logical :: flagJ1ve=.false.
+
+  !> whether to use the newer photoionization calculation with nighttime Q
+  logical :: flagnightQ = .false.
 end type gemini_cfg
 
 

@@ -228,6 +228,11 @@ flagevibcool=.true.        ! use updated inelastic cooling rates for electron en
 &J1ve
 flagJ1ve=.true.        ! use parallel current density in calculation of parallel electron drift
 /
+
+! (optional - off by default)
+&nightQ
+  flagnightQ=.true.    ! use newer photoionization calculation including nighttime Q
+/
 ```
 
 <a name="grid_input_files"></a>

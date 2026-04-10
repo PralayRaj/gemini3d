@@ -69,6 +69,9 @@ contains
     ! controls type of electron velocity solve
     logical :: flagJ1ve
 
+    ! add nightime ionization
+    logical :: flagnightQ = .false.
+
     namelist /base/ ymd, UTsec0, tdur, dtout, activ, tcfl, Teinf
     namelist /files/ file_format, indat_size, indat_grid, indat_file
     namelist /flags/ potsolve, flagperiodic, flagoutput
@@ -96,6 +99,7 @@ contains
     namelist /evibcool/ flagevibcool
     namelist /magpole/ flagmagpole
     namelist /J1ve/ flagJ1ve
+    namelist /nightQ/ flagnightQ
 
     if(.not. allocated(cfg%outdir)) error stop 'gemini3d:config:config_nml please specify simulation output directory'
     if(.not. allocated(cfg%infile)) error stop 'gemini3d:config:config_nml please specify simulation configuration file config.nml'
@@ -402,6 +406,15 @@ contains
     else
       cfg%flagJ1ve = .false.    ! not incorporating current density into electron drift so CI still works okay
     endif
+
+    if (namelist_exists(u, 'nightQ')) then
+      rewind(u)
+      read(u, nml=nightQ, iostat=i)
+      call check_nml_io(i, cfg%infile, "nightQ")
+      cfg%flagnightQ = flagnightQ
+    else
+      cfg%flagnightQ = .false.    ! not adding nighttime ionization (default uses the older version)
+    end if
 
     close(u)
   end procedure read_nml

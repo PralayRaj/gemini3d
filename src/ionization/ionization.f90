@@ -1,5 +1,6 @@
 module ionization
 
+use gemini3d_config, only: gemini_cfg
 use phys_consts, only: elchrg, lsp, kb, mn, re, pi, wp, lwave, debug
 use ionize_fang, only: fang2008, fang2010, fang2010_spectrum
 !! we need the unperturbed msis temperatures to apply the simple chapman theory used by this module
@@ -26,10 +27,11 @@ interface
 end interface
 
 contains
-  function photoionization(t,ymd,UTsec,x,nn,chi,f107,f107a,gavg,Tninf,Iinf)
+  function photoionization(cfg,t,ymd,UTsec,x,nn,chi,f107,f107a,gavg,Tninf,Iinf)
     !------------------------------------------------------------
     !-------COMPUTE PHOTOIONIZATION RATES PER SOLOMON ET AL, 2005
     !------------------------------------------------------------
+    type(gemini_cfg), intent(in) :: cfg
     real(wp), intent(in) :: t
     integer, intent(in), dimension(3) :: ymd
     real(wp), intent(in) :: UTsec
@@ -154,26 +156,130 @@ contains
     pepiO2di=[76.136, 17.944, 6.981, 20.338, 1.437, 0.521, 0.163, 0.052, 0.014, 0.001, &
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         
-
+        
+        
+        
     call compute_column_density(nn(:,:,:,1), chi, x, Tninf, gavg, mn(1), nOcol)
     call compute_column_density(nn(:,:,:,2), chi, x, Tninf, gavg, mn(2), nN2col)
     call compute_column_density(nn(:,:,:,3), chi, x, Tninf, gavg, mn(3), nO2col)
     
+    Iflux_day = 0._wp
+    do il = 1, ll
+      do ix3 = 1, lx3
+        do ix2 = 1, lx2
+          do ix1 = 1, lx1
+            if (chi(ix1,ix2,ix3) < chi0) then
+              Iflux_day(ix1,ix2,ix3,il) = Iinf(ix1,ix2,ix3,il) * exp( - &
+                   ( sigmaO(il)  * nOcol(ix1,ix2,ix3)  + &
+                     sigmaN2(il) * nN2col(ix1,ix2,ix3) + &
+                     sigmaO2(il) * nO2col(ix1,ix2,ix3) ) )
+            else
+              Iflux_day(ix1,ix2,ix3,il) = 0._wp
+            end if
+          end do
+        end do
+      end do
+    end do
+    
+   photoionization = 0._wp
+
+    do il=1,ll
+        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_day(:,:,:,il)*sigmaO(il)*(1 + pepiO(il))
+        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2i(il)*(1 + pepiN2i(il))
+        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2di(il)*(1 + pepiN2di(il))
+        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2i(il)*(1 + pepiO2i(il))
+        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2di(il)*(1 + pepiO2di(il))
+    end do
+    
+    ! Only add nighttime terms if flag is ON
+  if (cfg%flagnightQ) then
+
     call compute_column_density_vertical(nn(:,:,:,1), x, nOcol_vert)
     call compute_column_density_vertical(nn(:,:,:,2), x, nN2col_vert)
     call compute_column_density_vertical(nn(:,:,:,3), x, nO2col_vert)
-    
-    where (chi < pi/2._wp)
-    nOcol  = nOcol
-    nN2col = nN2col
-    nO2col = nO2col
-    elsewhere
-    nOcol  = nOcol_vert
-    nN2col = nN2col_vert
-    nO2col = nO2col_vert
+
+    Iflux_night = 0._wp
+
+    do ix3 = 1, lx3
+      do ix2 = 1, lx2
+        do ix1 = 1, lx1
+
+          alt_km = x%alt(ix1,ix2,ix3) / 1000._wp
+          sza    = chi(ix1,ix2,ix3)
+
+          do il = 1, ll
+
+            Fnight = 0._wp
+
+            if (il == i_heii) then
+              tau_heii = sigaO_heii*nOcol_vert(ix1,ix2,ix3) + sigaN2_heii*nN2col_vert(ix1,ix2,ix3) + &
+                         sigaO2_heii*nO2col_vert(ix1,ix2,ix3)
+              Fnight = get_nightflux("heii", alt_km, sza) * exp(-tau_heii)
+
+            else if (il == i_hei) then
+              tau_hei = sigaO_hei*nOcol_vert(ix1,ix2,ix3) + sigaN2_hei*nN2col_vert(ix1,ix2,ix3) + &
+                        sigaO2_hei*nO2col_vert(ix1,ix2,ix3)
+              Fnight = get_nightflux("hei", alt_km, sza) * exp(-tau_hei)
+
+            else if (il == i_lyb) then
+              tau_lyb = sigaO_lyb*nOcol_vert(ix1,ix2,ix3) + sigaN2_lyb*nN2col_vert(ix1,ix2,ix3) + &
+                        sigaO2_lyb*nO2col_vert(ix1,ix2,ix3)
+              Fnight = get_nightflux("lybeta", alt_km, sza) * exp(-tau_lyb)
+
+            else if (il == i_lya) then
+              tau_lya = sigaO_lya*nOcol_vert(ix1,ix2,ix3) + sigaN2_lya*nN2col_vert(ix1,ix2,ix3) + &
+                        sigaO2_lya*nO2col_vert(ix1,ix2,ix3)
+              Fnight = get_nightflux("lyalpha", alt_km, sza) * exp(-tau_lya)
+            end if
+
+            w = 0.5_wp * (1._wp - tanh((sza - chi0)/(2._wp*dchi)))
+            Iflux_night(ix1,ix2,ix3,il) = (1._wp - w) * Fnight
+
+          end do
+        end do
+      end do
+    end do
+
+    do il = 1,ll
+      if (il == i_heii) then
+        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_heii
+        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2i(il)
+        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2di(il)
+        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2i(il)
+        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2di(il)
+
+      elseif (il == i_hei) then
+        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_hei
+        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2i(il)
+        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2di(il)
+        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2i(il)
+        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2di(il)
+
+      elseif (il == i_lyb) then
+        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_lyb*brO2i(il)
+      end if
+    end do
+
+  end if
+
+  photoionization(:,:,:,2) = 0._wp
+  photoionization(:,:,:,6) = 0._wp
+
+  where (photoionization < 0._wp)
+    photoionization = 0._wp
+  end where
+
+  do isp=1,lsp-1
+    phototmp = photoionization(:,:,:,isp)
+    where(x%nullpts)
+      phototmp = 0._wp
     end where
-    
-    
+    photoionization(:,:,:,isp) = phototmp
+  end do
+
+        
+
+!     if (.not. cfg%flagnightQ) then
 !     !O COLUMN DENSITY
 !     H=kB*Tninf/mn(1)/gavg                         !scalar scale height
 !     bigX=(x%alt(1:lx1,1:lx2,1:lx3)+Re)/H          !a reduced altitude
@@ -186,8 +292,8 @@ contains
 !       Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
 !     end where
 !     nOcol=nn(:,:,:,1)*H*Chfn
-!     
-!     
+!         
+!         
 !     !N2 COLUMN DENSITY
 !     H=kB*Tninf/mn(2)/gavg     !all of these temp quantities need to be recomputed for eacb neutral species being ionized
 !     bigX=(x%alt(1:lx1,1:lx2,1:lx3)+Re)/H
@@ -199,8 +305,8 @@ contains
 !       Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
 !     end where
 !     nN2col=nn(:,:,:,2)*H*Chfn
-!     
-!     
+!         
+!         
 !     !O2 COLUMN DENSITY
 !     H=kB*Tninf/mn(3)/gavg
 !     bigX=(x%alt(1:lx1,1:lx2,1:lx3)+Re)/H
@@ -212,8 +318,8 @@ contains
 !       Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
 !     end where
 !     nO2col=nn(:,:,:,3)*H*Chfn
-     
-    
+!          
+!         
 !     !Solar flux at each point on the grid, i.e. the attenuated vacuum flux
 !     do il=1,ll
 !       do ix3=1,x%lx3
@@ -225,76 +331,7 @@ contains
 !         end do
 !       end do
 !     end do   
-      
-
-      ! Flux computation
-      
-    do ix3 = 1, lx3
-     do ix2 = 1, lx2
-      do ix1 = 1, lx1
-
-      alt_km = x%alt(ix1, ix2, ix3) / 1000._wp
-      sza    = chi(ix1, ix2, ix3)
-
-        do il = 1, ll
-
-
-        ! Daytime direct flux
-
-        if (sza < chi0) then
-          Fday = Iinf(ix1,ix2,ix3,il) * exp( - &
-               ( sigmaO(il)  * nOcol(ix1,ix2,ix3)  + &
-                 sigmaN2(il) * nN2col(ix1,ix2,ix3) + &
-                 sigmaO2(il) * nO2col(ix1,ix2,ix3) ) )
-        else
-          Fday = 0._wp
-        end if
-
-        ! Nighttime asymptotic flux
-        
-        Fnight = 0._wp
-
-        if (il == i_heii) then
-          tau_heii = sigaO_heii  * nOcol_vert(ix1,ix2,ix3)  + &
-                     sigaN2_heii * nN2col_vert(ix1,ix2,ix3) + &
-                     sigaO2_heii * nO2col_vert(ix1,ix2,ix3)
-          Fnight = get_nightflux("heii", alt_km, sza) * exp(-tau_heii)
-
-        else if (il == i_hei) then
-          tau_hei = sigaO_hei  * nOcol_vert(ix1,ix2,ix3)  + &
-                    sigaN2_hei * nN2col_vert(ix1,ix2,ix3) + &
-                    sigaO2_hei * nO2col_vert(ix1,ix2,ix3)
-          Fnight = get_nightflux("hei", alt_km, sza) * exp(-tau_hei)
-
-        else if (il == i_lyb) then
-          tau_lyb = sigaO_lyb  * nOcol_vert(ix1,ix2,ix3)  + &
-                    sigaN2_lyb * nN2col_vert(ix1,ix2,ix3) + &
-                    sigaO2_lyb * nO2col_vert(ix1,ix2,ix3)
-          Fnight = get_nightflux("lybeta", alt_km, sza) * exp(-tau_lyb)
-
-        else if (il == i_lya) then
-          tau_lya = sigaO_lya  * nOcol_vert(ix1,ix2,ix3)  + &
-                    sigaN2_lya * nN2col_vert(ix1,ix2,ix3) + &
-                    sigaO2_lya * nO2col_vert(ix1,ix2,ix3)
-          Fnight = get_nightflux("lyalpha", alt_km, sza) * exp(-tau_lya)
-        end if
-
-
-        ! Smooth day-night blending
-
-        w = 0.5_wp * (1._wp - tanh((sza - chi0)/(2._wp*dchi)))
-        
-        Iflux_day(ix1,ix2,ix3,il)   = w * Fday
-        Iflux_night(ix1,ix2,ix3,il) = (1._wp - w) * Fnight
-
-        Iflux(ix1,ix2,ix3,il) = Iflux_day(ix1,ix2,ix3,il) + Iflux_night(ix1,ix2,ix3,il)
-
-        end do
-      end do
-     end do
-    end do
-
-
+!     
 !     !PRIMARY AND SECONDARY IONIZATION RATES
 !     photoionization=0
 !     
@@ -302,84 +339,173 @@ contains
 !     do il=1,ll
 !       photoionization(:,:,:,1)=photoionization(:,:,:,1)+nn(:,:,:,1)*Iflux(:,:,:,il)*sigmaO(il)*(1 + pepiO(il))
 !     end do
-!     
+!         
 !     !direct NO+
 !     photoionization(:,:,:,2) = 0
-!     
-!     !direct N2+
+!         
+!         !direct N2+
 !     do il=1,ll
 !       photoionization(:,:,:,3)=photoionization(:,:,:,3)+nn(:,:,:,2)*Iflux(:,:,:,il)*sigmaN2(il)*brN2i(il)*(1 + pepiN2i(il))
 !     end do
-!     
+!         
 !     !dissociative ionization of N2 leading to N+
 !     do il=1,ll
 !       photoionization(:,:,:,5)=photoionization(:,:,:,5)+nn(:,:,:,2)*Iflux(:,:,:,il)*sigmaN2(il)*brN2di(il)*(1 + pepiN2di(il))
 !     end do
-!     
+!         
 !     !direct O2+
 !     do il=1,ll
 !       photoionization(:,:,:,4)=photoionization(:,:,:,4)+nn(:,:,:,3)*Iflux(:,:,:,il)*sigmaO2(il)*brO2i(il)*(1 + pepiO2i(il))
 !     end do
-!     
+!         
 !     !dissociative ionization of O2 leading to O+
 !     do il=1,ll
 !       photoionization(:,:,:,1)=photoionization(:,:,:,1)+nn(:,:,:,3)*Iflux(:,:,:,il)*sigmaO2(il)*brO2di(il)*(1 + pepiO2di(il))
 !     end do
-    
+!         
 !     !H+ production
 !     photoionization(:,:,:,6) = 0
-
-    ! Ionization rate calculation
-    photoionization = 0._wp
-
-    do il = 1, ll
-
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_day(:,:,:,il)*sigmaO(il)*(1 + pepiO(il))
-        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2i(il)*(1 + pepiN2i(il))
-        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2di(il)*(1 + pepiN2di(il))
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2i(il)*(1 + pepiO2i(il))
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2di(il)*(1 + pepiO2di(il))
-    end do
-
-    ! Night time
-    do il = 1,ll
-    if (il == i_heii) then    
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_heii !*(1 + pepiO(il))
-        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2i(il) !*(1 + pepiN2i(il))
-        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2di(il) !*(1 + pepiN2di(il))
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2i(il) !*(1 + pepiO2i(il))
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2di(il) !*(1 + pepiO2di(il))
-    elseif (il == i_hei) then
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_hei !*(1 + pepiO(il))
-        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2i(il) !*(1 + pepiN2i(il))
-        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2di(il) !*(1 + pepiN2di(il))
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2i(il) !*(1 + pepiO2i(il))
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2di(il) !*(1 + pepiO2di(il))
-    elseif (il == i_lyb) then
-        ! Ly-beta: only O2 has nonzero cross section
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_lyb*brO2i(il) !*(1 + pepiO2i(il))
-    elseif (il == i_lya) then
-        ! Ly-alpha: this contributes zero
-    end if
-    end do
-
-    photoionization(:,:,:,2) = 0._wp
-    photoionization(:,:,:,6) = 0._wp
-    
-    
-    !THERE SHOULD BE SOME CODE HERE TO ZERO OUT THE BELOW-GROUND ALTITUDES.
-    where (photoionization < 0)
-      photoionization = 0
-    end where
-    do isp=1,lsp-1
-      phototmp=photoionization(:,:,:,isp)
-    !  where (x%nullpts>0.9 .and. x%nullpts<1.1)
-      where(x%nullpts)
-        phototmp=0
-      end where
-      photoionization(:,:,:,isp) = phototmp
-    end do
-    
+!     
+!     else
+!       
+!     call compute_column_density(nn(:,:,:,1), chi, x, Tninf, gavg, mn(1), nOcol)
+!     call compute_column_density(nn(:,:,:,2), chi, x, Tninf, gavg, mn(2), nN2col)
+!     call compute_column_density(nn(:,:,:,3), chi, x, Tninf, gavg, mn(3), nO2col)
+!     
+!     call compute_column_density_vertical(nn(:,:,:,1), x, nOcol_vert)
+!     call compute_column_density_vertical(nn(:,:,:,2), x, nN2col_vert)
+!     call compute_column_density_vertical(nn(:,:,:,3), x, nO2col_vert)
+!     
+!     where (chi < pi/2._wp)
+!     nOcol  = nOcol
+!     nN2col = nN2col
+!     nO2col = nO2col
+!     elsewhere
+!     nOcol  = nOcol_vert
+!     nN2col = nN2col_vert
+!     nO2col = nO2col_vert
+!     end where
+!     
+! 
+!       ! Flux computation
+!       
+!     do ix3 = 1, lx3
+!      do ix2 = 1, lx2
+!       do ix1 = 1, lx1
+! 
+!       alt_km = x%alt(ix1, ix2, ix3) / 1000._wp
+!       sza    = chi(ix1, ix2, ix3)
+! 
+!         do il = 1, ll
+! 
+! 
+!         ! Daytime direct flux
+! 
+!         if (sza < chi0) then
+!           Fday = Iinf(ix1,ix2,ix3,il) * exp( - &
+!                ( sigmaO(il)  * nOcol(ix1,ix2,ix3)  + &
+!                  sigmaN2(il) * nN2col(ix1,ix2,ix3) + &
+!                  sigmaO2(il) * nO2col(ix1,ix2,ix3) ) )
+!         else
+!           Fday = 0._wp
+!         end if
+! 
+!         ! Nighttime asymptotic flux
+!         
+!         Fnight = 0._wp
+! 
+!         if (il == i_heii) then
+!           tau_heii = sigaO_heii  * nOcol_vert(ix1,ix2,ix3)  + &
+!                      sigaN2_heii * nN2col_vert(ix1,ix2,ix3) + &
+!                      sigaO2_heii * nO2col_vert(ix1,ix2,ix3)
+!           Fnight = get_nightflux("heii", alt_km, sza) * exp(-tau_heii)
+! 
+!         else if (il == i_hei) then
+!           tau_hei = sigaO_hei  * nOcol_vert(ix1,ix2,ix3)  + &
+!                     sigaN2_hei * nN2col_vert(ix1,ix2,ix3) + &
+!                     sigaO2_hei * nO2col_vert(ix1,ix2,ix3)
+!           Fnight = get_nightflux("hei", alt_km, sza) * exp(-tau_hei)
+! 
+!         else if (il == i_lyb) then
+!           tau_lyb = sigaO_lyb  * nOcol_vert(ix1,ix2,ix3)  + &
+!                     sigaN2_lyb * nN2col_vert(ix1,ix2,ix3) + &
+!                     sigaO2_lyb * nO2col_vert(ix1,ix2,ix3)
+!           Fnight = get_nightflux("lybeta", alt_km, sza) * exp(-tau_lyb)
+! 
+!         else if (il == i_lya) then
+!           tau_lya = sigaO_lya  * nOcol_vert(ix1,ix2,ix3)  + &
+!                     sigaN2_lya * nN2col_vert(ix1,ix2,ix3) + &
+!                     sigaO2_lya * nO2col_vert(ix1,ix2,ix3)
+!           Fnight = get_nightflux("lyalpha", alt_km, sza) * exp(-tau_lya)
+!         end if
+! 
+! 
+!         ! Smooth day-night blending
+! 
+!         w = 0.5_wp * (1._wp - tanh((sza - chi0)/(2._wp*dchi)))
+!         
+!         Iflux_day(ix1,ix2,ix3,il)   = w * Fday
+!         Iflux_night(ix1,ix2,ix3,il) = (1._wp - w) * Fnight
+! 
+!         Iflux(ix1,ix2,ix3,il) = Iflux_day(ix1,ix2,ix3,il) + Iflux_night(ix1,ix2,ix3,il)
+! 
+!         end do
+!       end do
+!      end do
+!     end do
+! 
+!     ! Ionization rate calculation
+!     photoionization = 0._wp
+! 
+!     do il = 1, ll
+! 
+!         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_day(:,:,:,il)*sigmaO(il)*(1 + pepiO(il))
+!         photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2i(il)*(1 + pepiN2i(il))
+!         photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2di(il)*(1 + pepiN2di(il))
+!         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2i(il)*(1 + pepiO2i(il))
+!         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2di(il)*(1 + pepiO2di(il))
+!     end do
+! 
+!     ! Night time
+!     do il = 1,ll
+!     if (il == i_heii) then    
+!         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_heii !*(1 + pepiO(il))
+!         photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2i(il) !*(1 + pepiN2i(il))
+!         photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2di(il) !*(1 + pepiN2di(il))
+!         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2i(il) !*(1 + pepiO2i(il))
+!         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2di(il) !*(1 + pepiO2di(il))
+!     elseif (il == i_hei) then
+!         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_hei !*(1 + pepiO(il))
+!         photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2i(il) !*(1 + pepiN2i(il))
+!         photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2di(il) !*(1 + pepiN2di(il))
+!         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2i(il) !*(1 + pepiO2i(il))
+!         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2di(il) !*(1 + pepiO2di(il))
+!     elseif (il == i_lyb) then
+!         ! Ly-beta: only O2 has nonzero cross section
+!         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_lyb*brO2i(il) !*(1 + pepiO2i(il))
+!     elseif (il == i_lya) then
+!         ! Ly-alpha: this contributes zero
+!     end if
+!     end do
+!     end if
+! 
+!     photoionization(:,:,:,2) = 0._wp
+!     photoionization(:,:,:,6) = 0._wp
+!     
+!     
+!     !THERE SHOULD BE SOME CODE HERE TO ZERO OUT THE BELOW-GROUND ALTITUDES.
+!     where (photoionization < 0)
+!       photoionization = 0
+!     end where
+!     do isp=1,lsp-1
+!       phototmp=photoionization(:,:,:,isp)
+!     !  where (x%nullpts>0.9 .and. x%nullpts<1.1)
+!       where(x%nullpts)
+!         phototmp=0
+!       end where
+!       photoionization(:,:,:,isp) = phototmp
+!     end do
+!     
     contains
     
       subroutine compute_column_density(nn_species, chi, x, Tninf, gavg, mass, n_col)
@@ -397,8 +523,8 @@ contains
               !      Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1._wp-erf(y))    !goodness this creates YUGE errors compared to erfc; left here as a lesson learned
               Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*erfc(y)
           elsewhere
-!               Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
-              Chfn=0._wp
+              Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
+!               Chfn=0._wp
           end where
               n_col = nn_species * H * Chfn      
     end subroutine compute_column_density

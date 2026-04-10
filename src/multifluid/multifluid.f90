@@ -536,7 +536,8 @@ end subroutine impact_ionization
 !> Ionization from solar radiation, *accumulates* rates, so initialize to zero if you want solely solar sources :)
 !  Upon entry:  we assume any photoinization has already been computed and placed in results arrays
 !  Upson exit:  intvars%Prionize and intvars%Qeionize include added solar sources
-subroutine solar_ionization(t,x,ymd,UTsec,f107a,f107,Prionize,Qeionize,ns,nn,Tn,gavg,Tninf,Iinf)
+subroutine solar_ionization(cfg,t,x,ymd,UTsec,f107a,f107,Prionize,Qeionize,ns,nn,Tn,gavg,Tninf,Iinf)
+  type(gemini_cfg), intent(in) :: cfg
   real(wp), intent(in) :: t
   class(curvmesh), intent(in) :: x
   integer, dimension(3), intent(in) :: ymd
@@ -562,7 +563,7 @@ subroutine solar_ionization(t,x,ymd,UTsec,f107a,f107,Prionize,Qeionize,ns,nn,Tn,
   end if
 
   ! solar fluxes and resulting ionization rates
-  Prionizetmp=photoionization(t,ymd,UTsec,x,nn,chi,f107,f107a,gavg,Tninf,Iinf)
+  Prionizetmp=photoionization(cfg,t,ymd,UTsec,x,nn,chi,f107,f107a,gavg,Tninf,Iinf)
   !if (mpi_cfg%myid==0 .and. debug) then
   if (debug) then
     print *, 'Min/max root photoionization production rates for time:  ',t,' :  ', &
