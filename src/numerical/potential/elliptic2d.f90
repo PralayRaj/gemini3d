@@ -2,7 +2,7 @@ submodule (PDEelliptic) elliptic2d
 
 implicit none (type, external)
 
-integer :: cartsolvetype=2      ! 2-use second order fwd/bwd diff at edge; anything else-use first order
+integer :: cartsolvetype=1      ! 2-use second order fwd/bwd diff at edge; anything else-use first order
 
 contains
   !>  A static solver that support J=0 boundary conditions with anisotropic conductance
