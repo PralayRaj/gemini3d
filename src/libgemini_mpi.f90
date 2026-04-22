@@ -242,13 +242,13 @@ contains
         flagoutput=1                   !force a full output at the milestone
         call output_plasma(cfg%outdir,flagoutput,ymd, &
           UTsec,vs2,vs3,ns,vs1,Ts,intvars%Phiall,J1,J2,J3, &
-          cfg%out_format,intvars%user_output,intvars%production_rate)
+          cfg%out_format,intvars%user_output)
         tmilestone = t + cfg%dtout * cfg%mcadence
         if(mpi_cfg%myid==0) print*, 'Milestone output triggered.'
       else
         call output_plasma(cfg%outdir,flagoutput,ymd, &
           UTsec,vs2,vs3,ns,vs1,Ts,intvars%Phiall,J1,J2,J3, &
-          cfg%out_format,intvars%user_output,intvars%production_rate)
+          cfg%out_format,intvars%user_output)
       end if
       if (mpi_cfg%myid==0 .and. debug) then
         call cpu_time(tfin)

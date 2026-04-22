@@ -152,8 +152,7 @@ type gemini_work
   type(neutraldataBG), pointer :: atmosbackground=>null()   ! background file file input
 
   !> user output data
-  integer :: lparms=5   ! number of 3D arrays to be output to hdf5 files
-  integer :: lprates=5
+  integer :: lparms=10   ! number of 3D arrays to be output to hdf5 files
   real(wp), dimension(:,:,:,:), pointer :: user_output=>null()     ! pointer to user output data
   !> photoionization production rates
   !real(wp), dimension(:,:,:,:), pointer :: production_rate =>null()
@@ -520,8 +519,8 @@ contains
 
     !! MZ -- I'm going to move these to the user_output array so you'll need to adjust your scripts to accommodate this...
     !intvars%production_rate(1:lx1,1:lx2,1:lx3,1:intvars%nparms) = intvars%Prionize(i1start:i1end,i2start:i2end,i3start:i3end,1:intvars%nparms)
-    intvars%user_output(1:lx1,1:lx2,1:lx3,6:6+intvars%lprate-1) = &
-            intvars%Prionize(i1start:i1end,i2start:i2end,i3start:i3end,1:intvars%lprate)    
+    intvars%user_output(1:lx1,1:lx2,1:lx3,6:10) = &
+            intvars%Prionize(i1start:i1end,i2start:i2end,i3start:i3end,1:5)    
   end subroutine user_populate
 
 
