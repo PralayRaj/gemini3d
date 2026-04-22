@@ -114,13 +114,13 @@ contains
     real(wp) :: tau_hei, tau_heii, tau_lyb, tau_lya
     real(wp), dimension(size(nn,1),size(nn,2),size(nn,3)) :: nOcol_vert ,nN2col_vert ,nO2col_vert
     
+
     !WAVELENGTH BIN BEGINNING AND END (THIS IDEALLY WOULD BE DATA STATEMENTS OR SOME KIND OF STRUCTURE THAT DOESN'T GET REASSIGNED AT EVERY CALL).  Actually all of these array assignments are static...
     lambda1=[0.05, 0.4, 0.8, 1.8, 3.2, 7.0, 15.5, 22.4, 29.0, 32.0, 54.0, 65.0, 65.0, &
         79.8, 79.8, 79.8, 91.3, 91.3, 91.3, 97.5, 98.7, 102.7, 105.0]*1e-9
     lambda2=[0.4, 0.8, 1.8, 3.2, 7.0, 15.5, 22.4, 29.0, 32.0, 54.0, 65.0, 79.8, 79.8, &
          91.3, 91.3, 91.3, 97.5, 97.5, 97.5, 98.7, 102.7, 105.0, 121.6]*1e-9
-    
-    
+
     !TOTAL ABSORPTION CROSS SECTIONS
     sigmaO=[0.0023, 0.0170, 0.1125, 0.1050, 0.3247, 1.3190, 3.7832, 6.0239, &
          7.7205, 10.7175, 13.1253, 8.5159, 4.7889, 3.0031, 4.1048, 3.7947, &
@@ -143,7 +143,7 @@ contains
     brO2di=[1.0, 1.0, 1.0, 1.0, 0.892, 0.653, 0.447, 0.376, 0.351, 0.240, 0.108, 0.001, &
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     
-    
+
     !PHOTOELECTRON TO DIRECT PRODUCTION RATIOS
     pepiO=[217.12, 50.593, 23.562, 71.378, 4.995, 2.192, 1.092, 0.694, 0.418, &
         0.127, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -155,9 +155,6 @@ contains
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     pepiO2di=[76.136, 17.944, 6.981, 20.338, 1.437, 0.521, 0.163, 0.052, 0.014, 0.001, &
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        
-        
-        
         
     call compute_column_density(nn(:,:,:,1), chi, x, Tninf, gavg, mn(1), nOcol)
     call compute_column_density(nn(:,:,:,2), chi, x, Tninf, gavg, mn(2), nN2col)
@@ -180,86 +177,83 @@ contains
         end do
       end do
     end do
-    
    photoionization = 0._wp
 
-    do il=1,ll
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_day(:,:,:,il)*sigmaO(il)*(1 + pepiO(il))
-        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2i(il)*(1 + pepiN2i(il))
-        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2di(il)*(1 + pepiN2di(il))
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2i(il)*(1 + pepiO2i(il))
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2di(il)*(1 + pepiO2di(il))
-    end do
+   do il=1,ll
+     photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_day(:,:,:,il)*sigmaO(il)*(1 + pepiO(il))
+     photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2i(il)*(1 + pepiN2i(il))
+     photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_day(:,:,:,il)*sigmaN2(il)*brN2di(il)*(1 + pepiN2di(il))
+     photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2i(il)*(1 + pepiO2i(il))
+     photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_day(:,:,:,il)*sigmaO2(il)*brO2di(il)*(1 + pepiO2di(il))
+   end do
     
     ! Only add nighttime terms if flag is ON
-  if (cfg%flagnightQ) then
+   if (cfg%flagnightQ) then
+     call compute_column_density_vertical(nn(:,:,:,1), x, nOcol_vert)
+     call compute_column_density_vertical(nn(:,:,:,2), x, nN2col_vert)
+     call compute_column_density_vertical(nn(:,:,:,3), x, nO2col_vert)
 
-    call compute_column_density_vertical(nn(:,:,:,1), x, nOcol_vert)
-    call compute_column_density_vertical(nn(:,:,:,2), x, nN2col_vert)
-    call compute_column_density_vertical(nn(:,:,:,3), x, nO2col_vert)
-
-    Iflux_night = 0._wp
-
-    do ix3 = 1, lx3
-      do ix2 = 1, lx2
-        do ix1 = 1, lx1
-
-          alt_km = x%alt(ix1,ix2,ix3) / 1000._wp
-          sza    = chi(ix1,ix2,ix3)
-
-          do il = 1, ll
-
-            Fnight = 0._wp
-
-            if (il == i_heii) then
-              tau_heii = sigaO_heii*nOcol_vert(ix1,ix2,ix3) + sigaN2_heii*nN2col_vert(ix1,ix2,ix3) + &
-                         sigaO2_heii*nO2col_vert(ix1,ix2,ix3)
-              Fnight = get_nightflux("heii", alt_km, sza) * exp(-tau_heii)
-
-            else if (il == i_hei) then
-              tau_hei = sigaO_hei*nOcol_vert(ix1,ix2,ix3) + sigaN2_hei*nN2col_vert(ix1,ix2,ix3) + &
-                        sigaO2_hei*nO2col_vert(ix1,ix2,ix3)
-              Fnight = get_nightflux("hei", alt_km, sza) * exp(-tau_hei)
-
-            else if (il == i_lyb) then
-              tau_lyb = sigaO_lyb*nOcol_vert(ix1,ix2,ix3) + sigaN2_lyb*nN2col_vert(ix1,ix2,ix3) + &
-                        sigaO2_lyb*nO2col_vert(ix1,ix2,ix3)
-              Fnight = get_nightflux("lybeta", alt_km, sza) * exp(-tau_lyb)
-
-            else if (il == i_lya) then
-              tau_lya = sigaO_lya*nOcol_vert(ix1,ix2,ix3) + sigaN2_lya*nN2col_vert(ix1,ix2,ix3) + &
-                        sigaO2_lya*nO2col_vert(ix1,ix2,ix3)
-              Fnight = get_nightflux("lyalpha", alt_km, sza) * exp(-tau_lya)
-            end if
-
-            w = 0.5_wp * (1._wp - tanh((sza - chi0)/(2._wp*dchi)))
-            Iflux_night(ix1,ix2,ix3,il) = (1._wp - w) * Fnight
-
-          end do
-        end do
-      end do
-    end do
-
-    do il = 1,ll
-      if (il == i_heii) then
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_heii
-        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2i(il)
-        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2di(il)
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2i(il)
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2di(il)
-
-      elseif (il == i_hei) then
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_hei
-        photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2i(il)
-        photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2di(il)
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2i(il)
-        photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2di(il)
-
-      elseif (il == i_lyb) then
-        photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_lyb*brO2i(il)
-      end if
-    end do
-
+     Iflux_night = 0._wp
+ 
+     do ix3 = 1, lx3
+       do ix2 = 1, lx2
+         do ix1 = 1, lx1
+ 
+           alt_km = x%alt(ix1,ix2,ix3) / 1000._wp
+           sza    = chi(ix1,ix2,ix3)
+ 
+           do il = 1, ll
+ 
+             Fnight = 0._wp
+ 
+             if (il == i_heii) then
+               tau_heii = sigaO_heii*nOcol_vert(ix1,ix2,ix3) + sigaN2_heii*nN2col_vert(ix1,ix2,ix3) + &
+                          sigaO2_heii*nO2col_vert(ix1,ix2,ix3)
+               Fnight = get_nightflux("heii", alt_km, sza) * exp(-tau_heii)
+ 
+             else if (il == i_hei) then
+               tau_hei = sigaO_hei*nOcol_vert(ix1,ix2,ix3) + sigaN2_hei*nN2col_vert(ix1,ix2,ix3) + &
+                         sigaO2_hei*nO2col_vert(ix1,ix2,ix3)
+               Fnight = get_nightflux("hei", alt_km, sza) * exp(-tau_hei)
+ 
+             else if (il == i_lyb) then
+               tau_lyb = sigaO_lyb*nOcol_vert(ix1,ix2,ix3) + sigaN2_lyb*nN2col_vert(ix1,ix2,ix3) + &
+                         sigaO2_lyb*nO2col_vert(ix1,ix2,ix3)
+               Fnight = get_nightflux("lybeta", alt_km, sza) * exp(-tau_lyb)
+ 
+             else if (il == i_lya) then
+               tau_lya = sigaO_lya*nOcol_vert(ix1,ix2,ix3) + sigaN2_lya*nN2col_vert(ix1,ix2,ix3) + &
+                         sigaO2_lya*nO2col_vert(ix1,ix2,ix3)
+               Fnight = get_nightflux("lyalpha", alt_km, sza) * exp(-tau_lya)
+             end if
+ 
+             w = 0.5_wp * (1._wp - tanh((sza - chi0)/(2._wp*dchi)))
+             Iflux_night(ix1,ix2,ix3,il) = (1._wp - w) * Fnight
+ 
+           end do
+         end do
+       end do
+     end do
+ 
+     do il = 1,ll
+       if (il == i_heii) then
+         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_heii
+         photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2i(il)
+         photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_heii*brN2di(il)
+         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2i(il)
+         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_heii*brO2di(il)
+ 
+       elseif (il == i_hei) then
+         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,1)*Iflux_night(:,:,:,il)*sigiO_hei
+         photoionization(:,:,:,3) = photoionization(:,:,:,3) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2i(il)
+         photoionization(:,:,:,5) = photoionization(:,:,:,5) + nn(:,:,:,2)*Iflux_night(:,:,:,il)*sigiN2_hei*brN2di(il)
+         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2i(il)
+         photoionization(:,:,:,1) = photoionization(:,:,:,1) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_hei*brO2di(il)
+ 
+       elseif (il == i_lyb) then
+         photoionization(:,:,:,4) = photoionization(:,:,:,4) + nn(:,:,:,3)*Iflux_night(:,:,:,il)*sigiO2_lyb*brO2i(il)
+       end if
+     end do
   end if
 
   photoionization(:,:,:,2) = 0._wp
@@ -507,88 +501,85 @@ contains
 !     end do
 !     
     contains
-    
       subroutine compute_column_density(nn_species, chi, x, Tninf, gavg, mass, n_col)
-      real(wp), intent(in) :: nn_species(:,:,:), chi(:,:,:), Tninf, gavg, mass
-      class(curvmesh), intent(in) :: x
-      real(wp), intent(out) :: n_col(:,:,:)
-      real(wp) :: H
-      real(wp), dimension(size(nn_species,1), size(nn_species,2), size(nn_species,3)) :: bigX, y, Chfn
+        real(wp), intent(in) :: nn_species(:,:,:), chi(:,:,:), Tninf, gavg, mass
+        class(curvmesh), intent(in) :: x
+        real(wp), intent(out) :: n_col(:,:,:)
+        real(wp) :: H
+        real(wp), dimension(size(nn_species,1), size(nn_species,2), size(nn_species,3)) :: bigX, y, Chfn
       
-          H = kB*Tninf/mass/gavg                      !scalar scale height
-          bigX=(x%alt(1:lx1,1:lx2,1:lx3)+Re)/H          !a reduced altitude
-          y = sqrt(bigX/2._wp)*abs(cos(chi))
-          
-          where (chi<pi/2._wp)    !where does work with array corresponding elements provided they are conformable (e.g. bigX and y in this case)
-              !      Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1._wp-erf(y))    !goodness this creates YUGE errors compared to erfc; left here as a lesson learned
-              Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*erfc(y)
-          elsewhere
-              Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
+        H = kB*Tninf/mass/gavg                      !scalar scale height
+        bigX=(x%alt(1:lx1,1:lx2,1:lx3)+Re)/H          !a reduced altitude
+        y = sqrt(bigX/2._wp)*abs(cos(chi))
+        
+        where (chi<pi/2._wp)    !where does work with array corresponding elements provided they are conformable (e.g. bigX and y in this case)
+            !      Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1._wp-erf(y))    !goodness this creates YUGE errors compared to erfc; left here as a lesson learned
+            Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*erfc(y)
+        elsewhere
+            Chfn=sqrt(pi/2._wp*bigX)*exp(y**2)*(1 + erf(y))
 !               Chfn=0._wp
-          end where
-              n_col = nn_species * H * Chfn      
-    end subroutine compute_column_density
+        end where
+            n_col = nn_species * H * Chfn      
+      end subroutine compute_column_density
       
       !DEBUG
       subroutine compute_column_density_vertical(nn_species, x, n_col)
-      real(wp), intent(in) :: nn_species(:,:,:)
-      class(curvmesh), intent(in) :: x
-      real(wp), intent(out) :: n_col(:,:,:)
+        real(wp), intent(in) :: nn_species(:,:,:)
+        class(curvmesh), intent(in) :: x
+        real(wp), intent(out) :: n_col(:,:,:)
+        integer :: i1,i2,i3
+        real(wp) :: dz
 
-      integer :: i1,i2,i3
-      real(wp) :: dz
-
-      n_col = 0._wp
-
-      do i3 = 1, size(nn_species,3)
-        do i2 = 1, size(nn_species,2)
-          n_col(size(nn_species,1), i2, i3) = 0._wp   ! column above model top neglected
-
-        do i1 = size(nn_species,1)-1, 1, -1
-          dz = x%alt(i1+1,i2,i3) - x%alt(i1,i2,i3)   ! meters
-          n_col(i1,i2,i3) = n_col(i1+1,i2,i3) + 0.5_wp * dz * &
-                          ( nn_species(i1,i2,i3) + nn_species(i1+1,i2,i3) )
+        n_col = 0._wp
+  
+        do i3 = 1, size(nn_species,3)
+          do i2 = 1, size(nn_species,2)
+            n_col(size(nn_species,1), i2, i3) = 0._wp   ! column above model top neglected
+  
+          do i1 = size(nn_species,1)-1, 1, -1
+            dz = x%alt(i1+1,i2,i3) - x%alt(i1,i2,i3)   ! meters
+            n_col(i1,i2,i3) = n_col(i1+1,i2,i3) + 0.5_wp * dz * &
+                            ( nn_species(i1,i2,i3) + nn_species(i1+1,i2,i3) )
+          end do
+          end do
         end do
-        end do
-      end do
-    end subroutine compute_column_density_vertical
+      end subroutine compute_column_density_vertical
 
-    function get_nightflux(line_type, alt_km, sza_rad) result(F)
-    character(len=*), intent(in) :: line_type
-    real(wp), intent(in) :: alt_km, sza_rad
-    real(wp) :: F, sza_deg, a, b, c, logF
-    sza_deg = sza_rad * 180.0_wp / pi
-    sza_deg = min(max(sza_deg, 90._wp), 180._wp)
-    !print *, 'Nighttime SZA =', sza_rad * 180.0_wp / pi
-    select case (trim(adjustl(line_type)))
-    case ('lyalpha')
-    a = 9.7e-05_wp; b = -0.0377_wp; c = 12.7900_wp
-    fscale = 1.0_wp
-    case ('lybeta')
-    a = 1.36e-4_wp; b = -0.0499_wp; c = 10.9299_wp
-    fscale = 0.85_wp
-!     print *, 'Case Ly-Beta'
-    case ('hei')
-    a = -2.4e-05_wp; b = -0.0596_wp; c = 13.5588_wp
-    fscale = 0.05_wp
-!     print *, 'Case He I'
-    case ('heii')
-    a = -1.3e-04_wp; b = 0.0287_wp; c = 6.0416_wp
-    fscale = 0.05_wp
-!     print *, 'Case He II'
-    case default
-    F = 0._wp; return
-    end select
-
-
-    logF = a * sza_deg**2 + b * sza_deg + c
-    F = fscale*10.0_wp**logF*1e4 !m-2s-1
-!      print *, 'Flux for', trim(line_type), 'is', F
-!      print *, 'SZA is:', sza_deg
-!     print *, 'a =', a, ', b =', b, ', c =', c  
-    end function get_nightflux
+      function get_nightflux(line_type, alt_km, sza_rad) result(F)
+        character(len=*), intent(in) :: line_type
+        real(wp), intent(in) :: alt_km, sza_rad
+        real(wp) :: F, sza_deg, a, b, c, logF
+        sza_deg = sza_rad * 180.0_wp / pi
+        sza_deg = min(max(sza_deg, 90._wp), 180._wp)
+        !print *, 'Nighttime SZA =', sza_rad * 180.0_wp / pi
+        select case (trim(adjustl(line_type)))
+        case ('lyalpha')
+        a = 9.7e-05_wp; b = -0.0377_wp; c = 12.7900_wp
+        fscale = 1.0_wp
+        case ('lybeta')
+        a = 1.36e-4_wp; b = -0.0499_wp; c = 10.9299_wp
+        fscale = 0.85_wp
+    !     print *, 'Case Ly-Beta'
+        case ('hei')
+        a = -2.4e-05_wp; b = -0.0596_wp; c = 13.5588_wp
+        fscale = 0.05_wp
+    !     print *, 'Case He I'
+        case ('heii')
+        a = -1.3e-04_wp; b = 0.0287_wp; c = 6.0416_wp
+        fscale = 0.05_wp
+    !     print *, 'Case He II'
+        case default
+        F = 0._wp; return
+        end select
     
-end function photoionization
+    
+        logF = a * sza_deg**2 + b * sza_deg + c
+        F = fscale*10.0_wp**logF*1e4 !m-2s-1
+    !      print *, 'Flux for', trim(line_type), 'is', F
+    !      print *, 'SZA is:', sza_deg
+    !     print *, 'a =', a, ', b =', b, ', c =', c  
+      end function get_nightflux
+  end function photoionization
 
 
   pure function ionrate_fang(W0, PhiWmWm2, alt, nn, Tn, g1, flag_fang, diff_num_flux, kappa, bimax_frac, W0_char)
@@ -619,12 +610,12 @@ end function photoionization
           PhiW=PhiW/1e3_wp/1e4_wp    !to keV/cm^2/s
           W0keV=W0(ix2,ix3)/1e3_wp
           W0_char_keV=W0_char/1e3_wp
-    
+
           massden=mn(1)*nn(:,ix2,ix3,1)+mn(2)*nn(:,ix2,ix3,2)+mn(3)*nn(:,ix2,ix3,3)
           !! mass densities are [kg m^-3] as per neutral/neutral.f90 "call meters(.true.)" for MSIS.
           meanmass=massden/(nn(:,ix2,ix3,1)+nn(:,ix2,ix3,2)+nn(:,ix2,ix3,3))
           !! mean mass per particle [kg]
-    
+
           !> TOTAL IONIZATION RATE
           !! [cm^-3 s^-1] => [m^-3 s^-1]
           select case (flag_fang)
@@ -640,24 +631,24 @@ end function photoionization
           end select
         end do
       end do
-    
-  
+
+
       !NOW THAT TOTAL IONIZATION RATE HAS BEEN CALCULATED BREAK IT INTO DIFFERENT ION PRODUCTION RATES
       PO = 0
       PN2 = 0
       PO2 = 0
-    
+
       where (nn(:,:,:,1) + nn(:,:,:,2) + nn(:,:,:,3) > 1e-10_wp )
               PN2 = Ptot * 0.94_wp * nn(:,:,:,2) / &
                                (nn(:,:,:,3) + 0.94_wp*nn(:,:,:,2) + 0.55_wp * nn(:,:,:,1))
       endwhere
-    
+
       where (nn(:,:,:,2) > 1e-10_wp)
         PO2 = PN2 * 1.07_wp * nn(:,:,:,3) / nn(:,:,:,2)
         PO = PN2 * 0.59_wp * nn(:,:,:,1) / nn(:,:,:,2)
       endwhere
-    
-    
+
+
       !SPLIT TOTAL IONIZATION RATE PER VALLANCE JONES, 1973
       ionrate_fang(:,:,:,1) = PO + 0.33_wp * PO2
       ionrate_fang(:,:,:,2) = 0
@@ -669,73 +660,73 @@ end function photoionization
       ionrate_fang(:,:,:,:) = 0
     end if
   end function ionrate_fang
-  
-  
+
+
   pure function eheating(nn,ionrate,ns)
     !------------------------------------------------------------
     !-------COMPUTE SWARTZ AND NISBET, (1973) ELECTRON HEATING RATES.
     !-------ION ARRAYS (EXCEPT FOR RATES) ARE EXPECTED TO INCLUDE
     !-------GHOST CELLS.
     !------------------------------------------------------------
-    
+
     real(wp), dimension(:,:,:,:), intent(in) :: nn
     real(wp), dimension(1:size(nn,1),1:size(nn,2),1:size(nn,3),lsp-1), intent(in) :: ionrate
     real(wp), dimension(-1:,-1:,-1:,:), intent(in) :: ns    !includes ghost cells
-    
+
     real(wp), dimension(1:size(nn,1),1:size(nn,2),1:size(nn,3)) :: totionrate,R,avgenergy
     integer :: lx1,lx2,lx3
-    
+
     real(wp), dimension(1:size(nn,1),1:size(nn,2),1:size(nn,3)) :: eheating
-    
+
     lx1=size(nn,1)
     lx2=size(nn,2)
     lx3=size(nn,3)
-    
+
     R=log(ns(1:lx1,1:lx2,1:lx3,lsp)/(nn(:,:,:,2)+nn(:,:,:,3)+0.1_wp*nn(:,:,:,1)))
     avgenergy=exp(-(12.75_wp+6.941_wp*R+1.166_wp*R**2+0.08034_wp*R**3+0.001996_wp*R**4))
     totionrate=sum(ionrate,4)
-    
+
     eheating=elchrg*avgenergy*totionrate
   end function eheating
-  
-  
+
+
   subroutine ionrate_glow98(W0,PhiWmWm2,ymd,UTsec,f107,f107a,glat,glon,alt,nn,Tn,ns,Ts, &
                                  eheating, iver, ionrate)
     !! COMPUTE IONIZATION RATES USING GLOW MODEL RUN AT EACH
     !! X,Y METHOD.
-    
+
     real(wp), dimension(:,:,:), intent(in) :: W0,PhiWmWm2
-    
+
     integer, dimension(3), intent(in) :: ymd
     real(wp), intent(in) :: UTsec, f107, f107a
     real(wp), dimension(:,:), intent(in) :: glat,glon
-    
+
     real(wp), dimension(:,:,:,:), intent(in) :: nn
     real(wp), dimension(-1:,-1:,-1:,:), intent(in) :: ns,Ts
     real(wp), dimension(:,:,:), intent(in) :: alt,Tn
-    
+
     real(wp), dimension(1:size(nn,1),1:size(nn,2),1:size(nn,3)), intent(inout) :: eheating
     !! intent(out)
     real(wp), dimension(1:size(nn,2),1:size(nn,3),lwave), intent(inout) :: iver
     !! intent(out)
     real(wp), dimension(1:size(nn,1),1:size(nn,2),1:size(nn,3),lsp-1), intent(inout) :: ionrate
     !! intent(out)
-    
+
     integer :: ix2,ix3,lx1,lx2,lx3,date_doy
-    
+
     lx1=size(nn,1)
     lx2=size(nn,2)
     lx3=size(nn,3)
-    
+
     !! zero flux should really be checked per field line
     if ( maxval(PhiWmWm2) > 0) then   !only compute rates if nonzero flux given
-    
+
       date_doy = modulo(ymd(1), 100)*1000 + ymd2doy(ymd(1), ymd(2), ymd(3))
       !! date in format needed by GLOW (yyddd)
       do ix3=1,lx3
         do ix2=1,lx2
           !W0eV=W0(ix2,ix3) !Eo in eV at upper x,y locations (z,x,y) normally
-    
+
           if ( maxval(PhiWmWm2(ix2,ix3,:)) <= 0) then    !only compute rates if nonzero flux given *here* (i.e. at this location)
             ionrate(:,ix2,ix3,:) = 0
             eheating(:,ix2,ix3) = 0
