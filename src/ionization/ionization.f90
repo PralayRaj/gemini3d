@@ -165,6 +165,15 @@ contains
       do ix3 = 1, lx3
         do ix2 = 1, lx2
           do ix1 = 1, lx1
+
+            ! FIXME:  
+            ! There is a problem here where ll=23 but Iinf only has 22 array entries.  Apparently it doesn't mess up things most
+            !   times but this should be fixed as it could have inintended effects depending on mmemory layout.  I would recommend
+            !   removing the nighttime only entries (il=23) from the arrays used above for EUVAC and just storing them in other variables.  
+            !   This is better because in many cases there will be file-based solar flux inputs that assume 22 bins and we want
+            !   the nighttime ionization code to still work with those (e.g. solarfluxBCS.f90 source file in ./boundary_conditions.
+            !   So probably the extra 23rd bin data should just be stored in individual variables that get used in the Qnight
+            !   calculation.    
             if (chi(ix1,ix2,ix3) < chi0 .or. (.not. cfg%flagnightQ) ) then    ! don't limit photoionization unless using Qnight
               Iflux_day(ix1,ix2,ix3,il) = Iinf(ix1,ix2,ix3,il) * exp( - &
                    ( sigmaO(il)  * nOcol(ix1,ix2,ix3)  + &
