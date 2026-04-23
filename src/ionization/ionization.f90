@@ -167,7 +167,8 @@ contains
           do ix1 = 1, lx1
 
             ! FIXME:  
-            ! There is a problem here where ll=23 but Iinf only has 22 array entries.  Apparently it doesn't mess up things most
+            ! There is a problem here where ll=23 but Iinf only has 22 array entries (solfluxBCs_mod.f90).  
+            !   Apparently it doesn't mess up things most
             !   times but this should be fixed as it could have inintended effects depending on mmemory layout.  I would recommend
             !   removing the nighttime only entries (il=23) from the arrays used above for EUVAC and just storing them in other variables.  
             !   This is better because in many cases there will be file-based solar flux inputs that assume 22 bins and we want
