@@ -165,7 +165,7 @@ contains
       do ix3 = 1, lx3
         do ix2 = 1, lx2
           do ix1 = 1, lx1
-            if (chi(ix1,ix2,ix3) < chi0) then
+            if (chi(ix1,ix2,ix3) < chi0 .or. (.not. cfg%flagnightQ) ) then    ! don't limit photoionization unless using Qnight
               Iflux_day(ix1,ix2,ix3,il) = Iinf(ix1,ix2,ix3,il) * exp( - &
                    ( sigmaO(il)  * nOcol(ix1,ix2,ix3)  + &
                      sigmaN2(il) * nN2col(ix1,ix2,ix3) + &
