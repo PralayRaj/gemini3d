@@ -149,6 +149,7 @@ contains
 
     !> read in config file and add contents to cfg
     call read_config_in(p,cfg)           ! read configuration file and add information to cfg
+    
 
     !> set the magnetic pole based on year if the user specified to do so
     call set_magnetic_pole_in(cfg)
@@ -213,14 +214,29 @@ contains
 !    call init_neutralBG_input_in(cfg,x,dt,t,ymd,UTsec,intvars)
 !--    call init_neutralperturb_in(dt,cfg,x,intvars,ymd,UTsec)
 
-    !> Recompute drifts and make some decisions about whether to invoke a Lagrangian grid
-    call get_initial_drifts(cfg,x,fluidvars,fluidauxvars,electrovars,intvars)
+!     !> Recompute drifts and make some decisions about whether to invoke a Lagrangian grid
+!     call get_initial_drifts(cfg,x,fluidvars,fluidauxvars,electrovars,intvars)
+! 
+!     !> control rate of console printing
+!     call set_update_cadence(iupdate)
+! 
+!     ! FIXME: for parallel drift to zero
+!     call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
+!     vs1=0._wp
 
+    !> Set electron temperature equal to MSIS neutral temperature
+
+    call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
+
+    Ts(3:lx1+2,3:lx2+2,3:lx3+2,lsp) = intvars%atmos%Tn
+
+    !> Recompute initial drifts using the modified electron temperature
+    call get_initial_drifts(cfg,x,fluidvars,fluidauxvars,electrovars,intvars)
+    
     !> control rate of console printing
     call set_update_cadence(iupdate)
 
     ! FIXME: for parallel drift to zero
-    call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
     vs1=0._wp
 
     !> Main time loop
@@ -264,10 +280,9 @@ contains
       if (myid==0 .and. debug) call cpu_time(tstart)
       call precip_perturb_in(cfg,intvars,x,dt,t,ymd,UTsec)
       call fluid_adv(cfg,fluidvars,fluidauxvars,electrovars,intvars,x,t,dt,ymd,UTsec,lsp,myid)
-      if (myid==0 .and. debug) then
-        call cpu_time(tfin)
-        print *, 'Multifluid total solve time:  ',tfin-tstart
-      endif
+      
+      ! Maintain fixed electron temperature equal to MSIS neutral temperature
+      Ts(3:lx1+2,3:lx2+2,3:lx3+2,lsp) = intvars%atmos%Tn
 
       !> Sanity check key variables before advancing
       ! FIXME: for whatever reason, it is just a fact that vs1 has trash in ghost cells after fluid_adv; I don't know why...
@@ -402,6 +417,7 @@ contains
 
     !> all workers need to "agree" on a gravity and exospheric temperature
     !call get_gavg_Tinf_in(intvars,gavg,Tninf)
+    call get_gavg_Tinf_in(intvars)
 
 
     !> Compute ionization sources for the present time step
@@ -409,6 +425,11 @@ contains
     !call impact_ionization_in(cfg,fluidvars,intvars,x,dt,t,ymd, &
     !                                    UTsec,f107a,f107,gavg,Tninf)
     !call solar_ionization_in(cfg,fluidvars,intvars,x,t,ymd,UTsec,f107a,f107,gavg,Tninf)
+    
+    call impact_ionization_in(cfg,fluidvars,intvars,x,dt,t,ymd, &
+                                        UTsec)
+
+    call solar_ionization_in(cfg,fluidvars,intvars,x,t,ymd,UTsec)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !> solve all source/loss processes
@@ -417,6 +438,7 @@ contains
     !call source_loss_energy_in(fluidvars,fluidauxvars,electrovars,intvars,x,dt)
     !call source_loss_momentum_in(fluidvars,fluidauxvars,electrovars,intvars,x,dt)
     !call source_loss_mass_in(fluidvars,fluidauxvars,electrovars,intvars,x,dt)
+    call source_loss_mass_in(cfg,fluidvars,fluidauxvars,electrovars,intvars,x,dt)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
