@@ -31,7 +31,8 @@ use neutraldata3Dobj_fclaw, only: neutraldata3D_fclaw
 use neutraldataBGobj, only: neutraldataBG
 use solfluxdataobj, only: solfluxdata
 use gemini3d_config, only: gemini_cfg
-use collisions, only: conductivities
+use collisions, only: conductivities, muP_e_diag, muH_e_diag, nuen_e_diag, mupar_e_diag, EoverN_Td_diag
+use bolsig_lookup, only: init_bolsig_table
 use filesystem, only : expanduser
 use temporal, only: cflcalc
 use grid, only: grid_size,lx1,lx2,lx3,lx2all,lx3all,grid_from_extents,read_size_gridcenter, get_gridcenter, &
@@ -152,10 +153,9 @@ type gemini_work
   type(neutraldataBG), pointer :: atmosbackground=>null()   ! background file file input
 
   !> user output data
-  integer :: lparms=10   ! number of 3D arrays to be output to hdf5 files
+  integer :: lparms=21   ! number of 3D arrays to be output to hdf5 files
   real(wp), dimension(:,:,:,:), pointer :: user_output=>null()     ! pointer to user output data
-  !> photoionization production rates
-  !real(wp), dimension(:,:,:,:), pointer :: production_rate =>null()
+
 end type gemini_work
 
 
@@ -384,6 +384,10 @@ contains
 
     ! lastly we want to allocate whatever data the user want to store and output for their particular application
     call user_allocate(intvars)
+     ! Read BOLSIG lookup table ONCE
+    if (cfg%use_bolsig) then
+      call init_bolsig_table(trim(cfg%bolsig_file))
+    end if
   end function gemini_work_alloc
 
 
@@ -446,7 +450,6 @@ contains
 
     ! Call user deallocate
     call user_deallocate(intvars)
-
     deallocate(intvars)
   end subroutine gemini_work_dealloc
 
@@ -457,6 +460,7 @@ contains
 
     if (.not. associated(intvars%user_output)) then
       allocate(intvars%user_output(1:lx1,1:lx2,1:lx3,1:intvars%lparms))     ! user data must not include ghost cells
+      intvars%user_output = 0._wp
     else
       error stop 'attempting to allocate user_output when already in use.'
     end if
@@ -465,7 +469,7 @@ contains
     !  allocate(intvars%production_rate(1:lx1,1:lx2,1:lx3,1:intvars%nparms))
     !else
     !  error stop 'attempting to allocate production_rate when already in use.'
-    !end if 
+    !end if
   end subroutine user_allocate
 
 
@@ -484,14 +488,14 @@ contains
     ! For source arrays not inside a derived type (e.g. intvars) we need to compute lower bound and advance past ghost cells.
     !   An additional, more subtle issue occurs because of how we are allocating a contiguous array and then pointing
     !   intvars%energyneut, etc. to those arrays.  The allocated array has lbound=-1 but the pointer does not carry
-    !   this information.  
+    !   this information.
 !     i1start=lbound(intvars%sig0,1)+2
 !     i1end=i1start+lx1-1
 !     i2start=lbound(intvars%sig0,2)+2
 !     i2end=i2start+lx2-1
 !     i3start=lbound(intvars%sig0,3)+2
 !     i3end=i3start+lx3-1
-     ! OR like this:  
+     ! OR like this:
 !    i1start=lbound(intvars%energyneut,1)+2
 !    i1end=i1start+lx1-1
 !    i2start=lbound(intvars%energyneut,2)+2
@@ -517,10 +521,33 @@ contains
     intvars%user_output(1:lx1,1:lx2,1:lx3,4)=intvars%sigNCP(i1start:i1end,i2start:i2end,i3start:i3end)
     intvars%user_output(1:lx1,1:lx2,1:lx3,5)=intvars%sigNCH(i1start:i1end,i2start:i2end,i3start:i3end)
 
-    !! MZ -- I'm going to move these to the user_output array so you'll need to adjust your scripts to accommodate this...
-    !intvars%production_rate(1:lx1,1:lx2,1:lx3,1:intvars%nparms) = intvars%Prionize(i1start:i1end,i2start:i2end,i3start:i3end,1:intvars%nparms)
-    intvars%user_output(1:lx1,1:lx2,1:lx3,6:10) = &
-            intvars%Prionize(i1start:i1end,i2start:i2end,i3start:i3end,1:5)    
+    ! for BOLSIG comparison
+    intvars%user_output(:,:,:,6)  = intvars%atmos%Tn !neutral temperature
+    intvars%user_output(:,:,:,7)  = intvars%atmos%nn(:,:,:,1)   ! neutral O
+    intvars%user_output(:,:,:,8)  = intvars%atmos%nn(:,:,:,2)   ! neutral N2
+    intvars%user_output(:,:,:,9)  = intvars%atmos%nn(:,:,:,3)   ! neutral O2
+    intvars%user_output(:,:,:,10) = intvars%atmos%nn(:,:,:,4)   ! neutral H
+
+    if (allocated(muP_e_diag)) then
+      intvars%user_output(:,:,:,11) = muP_e_diag                !electron pedersen mobility
+      intvars%user_output(:,:,:,12) = muH_e_diag                !hall electron mobility
+      intvars%user_output(:,:,:,13) = nuen_e_diag               !electron-neutral collision frequency
+      intvars%user_output(:,:,:,14) = mupar_e_diag              !parallel electron mobility
+    end if
+
+!     print *, 'USER_OUTPUT E1 range:', &
+!          minval(E1(1:lx1,1:lx2,1:lx3)), &
+!          maxval(E1(1:lx1,1:lx2,1:lx3))
+
+    intvars%user_output(:,:,:,15) = E1(1:lx1,1:lx2,1:lx3)       !parallel electric field
+
+    if (allocated(EoverN_Td_diag)) then
+      intvars%user_output(:,:,:,16) = EoverN_Td_diag            !townsend parallel lectric field
+    end if
+
+    ! Ionization production rates
+    intvars%user_output(:,:,:,17:21) = intvars%Prionize(1:lx1,1:lx2,1:lx3,1:5)
+
   end subroutine user_populate
 
 
@@ -548,6 +575,8 @@ contains
 
     !> internal work struct
     intvars=>gemini_work_alloc(cfg)
+!     ! Read BOLSIG lookup table ONCE
+!     call init_bolsig_table(trim(cfg%outdir)//'/inputs/bolsig_mobility_table.txt')
   end subroutine gemini_alloc
 
 
@@ -901,12 +930,12 @@ contains
     real(wp), dimension(:,:,:,:), pointer :: ns,vs1,vs2,vs3,Ts
     real(wp), dimension(:,:,:,:), pointer :: rhovs1,rhoes
     real(wp), dimension(:,:,:), pointer :: rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom
-    real(wp), dimension(:,:,:), pointer :: E1,E2,E3,J1,J2,J3,Phi   
+    real(wp), dimension(:,:,:), pointer :: E1,E2,E3,J1,J2,J3,Phi
 
     call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
     call electrovar_pointers(electrovars,E1,E2,E3,J1,J2,J3,Phi)
-   
+
     call v12rhov1(ns,vs1,rhovs1,J1,cfg%flagJ1ve)
   end subroutine v12rhov1_in
 
@@ -1545,6 +1574,9 @@ contains
     real(wp), dimension(:,:,:), allocatable :: sig0,sigP,sigH,sigPgrav,sigHgrav     !FIXME: use static arrays?
     real(wp), dimension(:,:,:,:), allocatable :: muP,muH,nusn
     integer :: ix1min,ix1max,ix2min,ix2max,ix3min,ix3max
+    real(wp), allocatable :: alt_km(:)
+    real(wp), allocatable :: EoverN_Td(:,:,:)
+    real(wp), allocatable :: Nneutral(:,:,:)
 
     call fluidvar_pointers(fluidvars,ns,vs1,vs2,vs3,Ts)
     call fluidauxvar_pointers(fluidauxvars,rhovs1,rhoes,rhov2,rhov3,B1,B2,B3,v1,v2,v3,rhom)
@@ -1554,7 +1586,19 @@ contains
     !call set_fields_test(x,E1,E2,E3)
     allocate(sig0(lx1,lx2,lx3),sigP(lx1,lx2,lx3),sigH(lx1,lx2,lx3),sigPgrav(lx1,lx2,lx3),sigHgrav(lx1,lx2,lx3))
     allocate(muP(lx1,lx2,lx3,lsp),muH(lx1,lx2,lx3,lsp),nusn(lx1,lx2,lx3,lsp))
-    call conductivities(intvars%atmos%nn,intvars%atmos%Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav)
+    allocate(alt_km(lx1))
+    allocate(EoverN_Td(lx1,lx2,lx3))
+    allocate(Nneutral(lx1,lx2,lx3))
+
+    alt_km = x%x1(1:lx1) / 1.0e3_wp
+
+    Nneutral = intvars%atmos%nn(:,:,:,1) + &
+               intvars%atmos%nn(:,:,:,2) + &
+               intvars%atmos%nn(:,:,:,3) + &
+               intvars%atmos%nn(:,:,:,4)
+
+!     EoverN_Td = abs(E1(1:lx1,1:lx2,1:lx3)) / Nneutral / 1.0e-21_wp
+!     call conductivities(intvars%atmos%nn,intvars%atmos%Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav,alt_km,EoverN_Td)
 
     ! pointers don't carry lbound
     ix1min=lbound(E2,1)+2
@@ -1576,9 +1620,13 @@ contains
       E3=0._wp
     end if
 
+    EoverN_Td = abs(E1(1:lx1,1:lx2,1:lx3)) / Nneutral / 1.0e-21_wp
+    call conductivities(intvars%atmos%nn,intvars%atmos%Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav,alt_km,EoverN_Td)
+
     call velocities_nompi(muP,muH,nusn,E2,E3,intvars%atmos%vn2,intvars%atmos%vn3,ns,Ts,x, &
                       cfg%flaggravdrift,cfg%flagdiamagnetic,vs2,vs3)
     deallocate(sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav)
+    deallocate(alt_km,EoverN_Td,Nneutral)
   end subroutine electrodynamics_test
 
 

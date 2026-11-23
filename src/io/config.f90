@@ -124,6 +124,10 @@ type :: gemini_cfg
 
   !> whether to use the newer photoionization calculation with nighttime Q
   logical :: flagnightQ = .false.
+  
+  !> whether to use BOLSIG mobilities for calculating collision frequencies
+  logical :: use_bolsig = .false.
+  character(:), allocatable :: bolsig_file
 end type gemini_cfg
 
 

@@ -154,10 +154,26 @@ contains
 
     ! slab-sized background variables
     real(wp), dimension(1:lx1,1:lx2,1:lx3) :: E02src,E03src
+    real(wp), allocatable :: alt_km(:)
+    real(wp), allocatable :: EoverN_Td(:,:,:)
+    real(wp), allocatable :: Nneutral(:,:,:)
 
     !> update conductivities and mobilities
     call cpu_time(tstart)
-    call conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav)
+    allocate(alt_km(lx1))
+    allocate(EoverN_Td(lx1,lx2,lx3))
+    allocate(Nneutral(lx1,lx2,lx3))
+
+    alt_km = x%x1(1:lx1) / 1.0e3_wp
+
+    Nneutral = max(nn(:,:,:,1) + nn(:,:,:,2) + nn(:,:,:,3) + nn(:,:,:,4), 1.0_wp)
+
+    EoverN_Td = abs(E1(1:lx1,1:lx2,1:lx3)) / Nneutral / 1.0e-21_wp
+    
+!     print *, 'E/N Td range in potential solver:', minval(EoverN_Td(10:100,:,:)), maxval(EoverN_Td(10:100,:,:))
+    
+    call conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav,alt_km,EoverN_Td)
+    deallocate(alt_km,EoverN_Td,Nneutral)
     if (cfg%flagFBI>1) then     ! need to accumulate nonlinear conductivities if user specifies
       call NLConductivity(nn,Tn,ns,Ts,E2,E3,x,sigP,sigH,sigNCP,sigNCH)
       sigP=sigP+sigNCP

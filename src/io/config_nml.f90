@@ -71,6 +71,10 @@ contains
 
     ! add nightime ionization
     logical :: flagnightQ = .false.
+    
+    ! for using BOLSIG mobilities
+    logical :: use_bolsig = .false.
+    character(1000) :: bolsig_file = ""
 
     namelist /base/ ymd, UTsec0, tdur, dtout, activ, tcfl, Teinf
     namelist /files/ file_format, indat_size, indat_grid, indat_file
@@ -100,6 +104,7 @@ contains
     namelist /magpole/ flagmagpole
     namelist /J1ve/ flagJ1ve
     namelist /nightQ/ flagnightQ
+    namelist /bolsig/ use_bolsig, bolsig_file
 
     if(.not. allocated(cfg%outdir)) error stop 'gemini3d:config:config_nml please specify simulation output directory'
     if(.not. allocated(cfg%infile)) error stop 'gemini3d:config:config_nml please specify simulation configuration file config.nml'
@@ -414,6 +419,18 @@ contains
       cfg%flagnightQ = flagnightQ
     else
       cfg%flagnightQ = .false.    ! not adding nighttime ionization (default uses the older version)
+    end if
+    
+    if (namelist_exists(u, 'bolsig')) then
+      rewind(u)
+      read(u, nml=bolsig, iostat=i)
+      call check_nml_io(i, cfg%infile, "bolsig")
+
+      cfg%use_bolsig = use_bolsig
+      cfg%bolsig_file = absolute(expand_envvar(bolsig_file), cfg%outdir)
+    else
+      cfg%use_bolsig = .false.
+      cfg%bolsig_file = ""
     end if
 
     close(u)
