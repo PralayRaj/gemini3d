@@ -206,6 +206,12 @@ module procedure potential_workers_mpi
 
 
   call parallel_currents(cfg,x,J2,J3,Vminx1slab,Vmaxx1slab,Phi,sig0,flagdirich,J1,E1)
+  
+  if (mpi_cfg%myid == 0) then
+!   print *, 'AFTER parallel_currents E1 min/max = ', &
+!            minval(E1(1:lx1,1:lx2,1:lx3)), &
+!            maxval(E1(1:lx1,1:lx2,1:lx3))
+  end if
 
 
   !    !R-------

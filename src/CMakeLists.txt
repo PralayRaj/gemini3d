@@ -14,7 +14,7 @@ add_subdirectory(mpimod)
 add_subdirectory(io)
 add_subdirectory(temporal)
 
-add_library(collision OBJECT collisions/collisions.f90)
+add_library(collision OBJECT collisions/bolsig_lookup.f90 collisions/collisions.f90)
 target_link_libraries(collision PRIVATE const gemini3d_config meshobj)
 
 # --- other libs

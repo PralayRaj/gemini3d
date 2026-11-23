@@ -4,12 +4,19 @@ use, intrinsic :: iso_fortran_env, only: stderr=>error_unit
 use phys_consts, only: wp, lsp, ln, ms, mn, kb, pi, elchrg, qs, debug
 use gemini3d_config, only: gemini_cfg
 use meshobj, only : curvmesh
+use bolsig_lookup, only: bolsig_loaded, bolsig_mu_lookup
 
 
 implicit none (type, external)
 private
 public :: thermal_conduct, thermal_conduct_new, conductivities, capacitance, maxwell_colln, coulomb_colln, NLConductivity
+public :: muP_e_diag, muH_e_diag, nuen_e_diag, mupar_e_diag, EoverN_Td_diag
 
+real(wp), allocatable :: muP_e_diag(:,:,:)
+real(wp), allocatable :: muH_e_diag(:,:,:)
+real(wp), allocatable :: nuen_e_diag(:,:,:)
+real(wp), allocatable :: mupar_e_diag(:,:,:)
+real(wp), allocatable :: EoverN_Td_diag(:,:,:)
 
 real(wp), parameter :: Csn(lsp,ln) = reshape( [ real(wp) :: &
 -1, 6.82e-10, 6.64e-10, -1, &
@@ -283,7 +290,7 @@ end subroutine thermal_conduct_new
 
 
 
-subroutine conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav)
+subroutine conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgrav,sigHgrav,alt_km,EoverN_Td)
   !! COMPUTE THE CONDUCTIVITIES OF THE IONOSPHERE.  STATE
   !! VARS. INCLUDE GHOST CELLS
 
@@ -304,10 +311,23 @@ subroutine conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgra
   integer :: isp,isp2,lx1,lx2,lx3
   real(wp), dimension(1:size(ns,1)-4,1:size(ns,2)-4,1:size(ns,3)-4) :: OMs
   real(wp), dimension(1:size(ns,1)-4,1:size(ns,2)-4,1:size(ns,3)-4) :: nuej,Phisj,Psisj,nutmp,mupar,mubase,rho
+  real(wp), dimension(:), intent(in), optional :: alt_km
+  real(wp), dimension(:,:,:), intent(in), optional :: EoverN_Td
+  logical :: do_bolsig
+  integer :: i1,i2,i3 
+  real(wp) :: muB, nuB
 
   lx1=size(Ts,1)-4
   lx2=size(Ts,2)-4
   lx3=size(Ts,3)-4
+  
+  do_bolsig = bolsig_loaded .and. present(alt_km) .and. present(EoverN_Td)
+  
+!   if (do_bolsig .and. debug) print *, 'BOLSIG mobility active in conductivities'
+!   
+!   if (bolsig_loaded) then
+!       print *, 'BOLSIG loaded in conductivities. do_bolsig = ', do_bolsig
+!   end if 
 
   !> Refactor this code so that it outputs nusn instead of the two "neutral mobilities", this also facilitates pressure terms...
 
@@ -325,19 +345,77 @@ subroutine conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgra
       call maxwell_colln(isp,isp2,nn,Tn,Ts,nutmp)
       nusn(:,:,:,isp)=nusn(:,:,:,isp)+nutmp
     end do
-
+    
+    ! this is included to add BOLSIG derived mobilities
+    
     if (isp<lsp) then
-      mubase=qs(isp)/ms(isp)/nusn(:,:,:,isp)      !parallel mobility
-    else
+      mubase=qs(isp)/ms(isp)/nusn(:,:,:,isp)
+
+    else 
       nuej = 0
       do isp2=1,lsp
         call coulomb_colln(isp,isp2,ns,Ts,vs1,nutmp,Phisj,Psisj)
         nuej=nuej+nutmp
       end do
 
-      mupar=qs(lsp)/ms(lsp)/(nusn(:,:,:,isp)+nuej)
-      mubase=qs(lsp)/ms(lsp)/nusn(:,:,:,isp)
+      ! Default GEMINI electron-neutral mobility.
+      ! If BOLSIG is active, replace neutral collision frequency only in 100--400 km (initial setup).
+      if (do_bolsig) then
+      
+        if (present(EoverN_Td)) then
+            if (.not. allocated(EoverN_Td_diag)) then
+                allocate(EoverN_Td_diag(lx1,lx2,lx3))
+            end if
+                EoverN_Td_diag = EoverN_Td
+        end if
+        
+        do i3 = 1,lx3
+          do i2 = 1,lx2
+            do i1 = 1,lx1
+
+              if (alt_km(i1) >= 100.0_wp .and. alt_km(i1) <= 400.0_wp) then
+
+                muB = bolsig_mu_lookup(EoverN_Td(i1,i2,i3), alt_km(i1))
+
+                if (muB > 0.0_wp) then
+                  ! Convert BOLSIG mobility magnitude to effective electron-neutral collision frequency.
+                  nuB = abs(qs(lsp)) / (ms(lsp) * muB)
+                  nusn(i1,i2,i3,isp) = nuB
+                end if
+
+              end if
+
+            end do
+          end do
+        end do
+!         print *, 'BOLSIG electron nu_en range:', minval(nusn(:,:,:,isp)), maxval(nusn(:,:,:,isp))
+!         print *, 'BOLSIG electron mu range:', &
+!                   minval(abs(qs(lsp))/(ms(lsp)*nusn(:,:,:,isp))), &
+!                   maxval(abs(qs(lsp))/(ms(lsp)*nusn(:,:,:,isp)))
+!         print *, 'BOLSIG E/N Td min:', minval(EoverN_Td(10:100,:,:))
+!         print *, 'BOLSIG E/N Td max:', maxval(EoverN_Td(10:100,:,:))
+      end if
+
+      ! Recompute mobilities after possible BOLSIG replacement.
+      mupar = qs(lsp)/ms(lsp)/(nusn(:,:,:,isp)+nuej)
+      mubase = qs(lsp)/ms(lsp)/nusn(:,:,:,isp)
+
     end if
+
+!     if (isp<lsp) then
+!       mubase=qs(isp)/ms(isp)/nusn(:,:,:,isp)      !parallel mobility
+!     else
+!       nuej = 0
+!       do isp2=1,lsp
+!         call coulomb_colln(isp,isp2,ns,Ts,vs1,nutmp,Phisj,Psisj)
+!         nuej=nuej+nutmp
+!       end do
+!       
+!       mupar=qs(lsp)/ms(lsp)/(nusn(:,:,:,isp)+nuej)
+!       mubase=qs(lsp)/ms(lsp)/nusn(:,:,:,isp)
+!     end if
+
+      
 
     !! modified mobilities for neutral wind calculations.
     !! these are deprecated since we output collision freq.
@@ -353,6 +431,18 @@ subroutine conductivities(nn,Tn,ns,Ts,vs1,B1,sig0,sigP,sigH,muP,muH,nusn,sigPgra
   !    print*, minval(muP(:,:,:,lsp)),maxval(muP(:,:,:,lsp))
   !  end if
     muH(:,:,:,isp) = mubase*-1*nusn(:,:,:,isp)*OMs/(nusn(:,:,:,isp)**2+OMs**2)       !Hall
+    
+    if (.not. allocated(muP_e_diag)) then
+      allocate(muP_e_diag(lx1,lx2,lx3))
+      allocate(muH_e_diag(lx1,lx2,lx3))
+      allocate(nuen_e_diag(lx1,lx2,lx3))
+      allocate(mupar_e_diag(lx1,lx2,lx3))
+    end if
+
+    muP_e_diag   = muP(:,:,:,lsp)
+    muH_e_diag   = muH(:,:,:,lsp)
+    nuen_e_diag  = nusn(:,:,:,lsp)
+    mupar_e_diag = abs(qs(lsp)) / (ms(lsp) * nusn(:,:,:,lsp))
 
     !gravity mobilities???
   end do

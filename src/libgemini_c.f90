@@ -33,6 +33,7 @@ use precipdataobj, only: precipdata
 use efielddataobj, only: efielddata
 use neutraldataobj, only: neutraldata
 use gemini3d_config, only: gemini_cfg
+use bolsig_lookup, only: init_bolsig_table
 use gemini3d, only: c_params, init_precipinput_in, &
             set_start_values_auxtimevars, set_start_values_auxvars, set_start_timefromcfg, &
             init_neutralBG_input_in, set_update_cadence, get_solar_indices, &
